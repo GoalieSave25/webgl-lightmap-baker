@@ -1,0 +1,2848 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Lightmap Baker</title>
+		<meta name="viewport" content="width=device-width, user-scalable=no" />
+		<style>
+			* {
+				margin: 0;
+				padding: 0;
+				user-select: none;
+				overflow: hidden;
+				cursor: default;
+				font-family: Verdana;
+				font-size: 17px;
+			}
+			.div {
+				position: absolute;
+				width: 100%;
+				height: 70px;
+				top: 0;
+				bottom: 0;
+				left: 0;
+				right: 0;
+				margin: auto;
+			}
+			p {
+				text-shadow: -2px 2px 10px rgba( 0, 0, 0, 1 )
+			}
+			input::placeholder {
+				color: #EEE;
+				opacity: 0.5;
+			}
+			input[ type='checkbox' ] {
+				width: 20px;
+				height: 20px;
+			}
+			input[ type='color' ] {
+				width: 150px;
+				height: 40px;
+				padding: 0px;
+			}
+			button {
+				padding: 7px;
+				padding-left: 20px;
+				padding-right: 20px;
+			}
+			.settings {
+				margin-right: 50px;
+				margin-top: 5px;
+				padding: 5px;
+			}
+		</style>
+		<body>
+			<canvas id="progress" height="32px" style="width: 100%; height: 64px; position: absolute; bottom: 0px;"></canvas>
+			<div id="rightthemeui" style="text-align: right; top: 0px; right: 0px; position: absolute; z-index: 11; /*display: none;*/">
+				
+				<div id="themelist" class="settings">
+					<button id="rebake">Bake</button>
+				</div>
+				
+				<div class="settings" style="color: #FFF; margin-top: 5px;">
+					Samples:
+				</div>
+				<select id="samples" class="settings">
+					<option value="4" selected>4</option>
+					<option value="8">8</option>
+					<option value="16">16</option>
+					<option value="32">32</option>
+					<option value="64">64</option>
+					<option value="128">128</option>
+					<option value="256">256</option>
+					<option value="512">512</option>
+					<option value="1024">1024</option>
+				</select><br>
+				
+				<div class="settings" style="color: #FFF; margin-top: 5px;">
+					Bake Size:
+				</div>
+				<select id="bakesize" class="settings">
+					<option value="512">512</option>
+					<option value="1024" selected>1024</option>
+					<option value="2048">2048</option>
+					<option value="4096">4096</option>
+					<option value="5760">5760</option>
+				</select><br>
+				
+				<!--<div class="settings" style="color: #FFF; margin-top: 5px;">
+					Bounce Lighting:
+				</div>
+				<input type="checkbox" id="diffuse" name="diffuse" class="settings">-->
+				
+				<div class="settings" style="color: #FFF; margin-top: 5px;">
+					Needs Export:
+				</div>
+				<input type="checkbox" id="export" name="export" class="settings">
+				
+				<div class="settings" style="color: #FFF; margin-top: 5px;">
+					Ambient:
+				</div>
+				<input type="range" id="ambient" class="settings" style="width: 200px; height: 0px;"><br>
+				
+				<div class="settings" style="color: #FFF; margin-top: 5px;">
+					Penumbra:
+				</div>
+				<input type="range" id="penumbra" class="settings" style="width: 200px; height: 0px;"><br>
+				
+				<div class="settings" style="color: #FFF; margin-top: 5px;">
+					Sun Color:
+				</div>
+				<input type="color" id="suncolor" name="suncolor" class="settings">
+				
+				<div class="settings" style="color: #FFF; margin-top: 5px;">
+					Sun Direction: ( x, z )
+				</div>
+				<input type="range" id="sunx" class="settings" style="width: 200px; height: 0px;"><br>
+				<input type="range" id="sunz" class="settings" style="width: 200px; height: 0px;"><br>
+				
+				<div id="themelist" style="margin-right: 50px; margin-top: 20px;">
+					<button id="addlight">Add Light</button>
+				</div>
+				
+				<div id="perlight">
+					<div id="themelist" style="margin-right: 50px; margin-top: 20px;">
+						<button id="addpreset">Add Preset</button>
+					</div><br>
+					<select id="presets" class="settings">
+						<option value="default">default</option>
+					</select><br>
+					<div class="settings" style="margin-top: 5px;">
+						<button id="renamepreset">Rename Preset</button>
+					</div>
+					<div class="settings" style="color: #FFF; margin-top: 5px;">
+						Light Color:
+					</div>
+					<input type="color" id="lightcolor" class="settings">
+					<div class="settings" style="color: #FFF; margin-top: 5px;">
+						Light Radius:
+					</div>
+					<input type="range" id="lightradius" class="settings" style="width: 200px; height: 0px;">
+					<div class="settings" style="color: #FFF; margin-top: 5px;">
+						Light Scale:
+					</div>
+					<input type="range" id="lightscale" class="settings" style="width: 200px; height: 0px;">
+					<div class="settings" style="color: #FFF; margin-top: 5px;">
+						Spotlight:
+					</div>
+					<select id="lightspot" class="settings">
+						<option value="0" selected>no</option>
+						<option value="1">down</option>
+						<option value="2">up</option>
+					</select><br>
+				</div>
+			</div>
+		</body>
+		<script type="text/javascript" src="/r124/three.js"></script>
+		<script type="text/javascript" src="/r124/examples/js/loaders/OBJLoader.js"></script>
+		<script type="text/javascript" src="/r124/examples/js/loaders/MTLLoader.js"></script>
+		<script type="text/javascript" src="/r124/examples/js/loaders/GLTFLoader.js"></script>
+		<script type="text/javascript" src="/r124/examples/js/exporters/GLTFExporter.js"></script>
+		<script type="text/javascript" src="/r124/examples/js/utils/BufferGeometryUtils.js"></script>
+		<script type="text/javascript" src="/r124/examples/js/controls/TransformControls.js"></script>
+		<script type="text/javascript" src="/dependencies/EffectComposer.js"></script>
+		<script type="text/javascript" src="/dependencies/weakmap.js"></script>
+		<script type="text/javascript" src="/ao/dependencies/threemeshbvh.js"></script>
+		<script type="importmap">
+			{
+				"imports": {
+					"three": "/ao/dependencies/three.module.js",
+					"xatlas-three": "/ao/dependencies/xatlas-three.js"
+				}
+			}
+		</script>
+		<script type="module">
+			import * as THREE from 'three';
+			import { UVUnwrapper } from 'xatlas-three';
+			import { mergeVertices } from '/ao/dependencies/BufferGeometryUtils.js';
+			
+			window.mergeVertices = mergeVertices;
+			
+			// ShadowMap + LightMap Res and Number of Directional Lights
+			let camera, scene, renderer, controls, object;
+			const objects = [];
+			
+			const unwrapper = new UVUnwrapper( { BufferAttribute: THREE.BufferAttribute } );
+			unwrapper.chartOptions = {
+				fixWinding: false,
+				maxBoundaryLength: 0,
+				maxChartArea: 0,
+				maxCost: 2,
+				maxIterations: 1,
+				normalDeviationWeight: 2,
+				normalSeamWeight: 4,
+				roundnessWeight: 0.009999999776482582,
+				straightnessWeight: 6,
+				textureSeamWeight: 0.5,
+				useInputMeshUvs: false,
+			}
+			unwrapper.packOptions = {
+				bilinear: true,
+				blockAlign: false,
+				bruteForce: false,
+				createImage: false,
+				maxChartSize: 0,
+				padding: 0,
+				resolution: 0,
+				rotateCharts: true,
+				rotateChartsToAxis: true,
+				texelsPerUnit: 0
+			}
+			unwrapper.useNormals = true
+			unwrapper.timeUnwrap = false // Logs time of unwrapping
+			unwrapper.logProgress = false // Logs unwrapping progress bar
+			
+			window.unwrapper = unwrapper;
+			
+			unwrapper.loadLibrary( function( mode, progress ) {
+					// console.log( mode, progress );
+				},
+				'http://' + location.host + '/ao/dependencies/xatlas.wasm',
+				'http://' + location.host + '/ao/dependencies/xatlas.js'
+			).then( ()=>{
+				init();
+			} );
+		</script>
+	</head>
+	
+	<script>
+		var isAO = true;
+		var bakeAO;
+		var obj;
+		
+		// White, Normal, Diffuse, Lights, AO, Shadow, and ShadowFast
+		var modes = [ "AO", "Shadow", "Lights" ];
+		//modes = [ "AO", "Shadow", "Diffuse", "Lights" ];
+		modes = [ "AO", "Shadow", "Lights" ];
+		//modes = [ "Lights" ];
+		var bakeSize = 5760; // 5760
+		bakeSize = 1024;
+		var useSamples = false;
+		var samples = 256;
+		//samples = 64;
+		samples = 32;
+		samples = 4;
+		//samples = 4;
+		var icosphereDetail = 2;
+		var maxDist = 0.5;
+		var blur = true;
+		var smoothNormals = true;
+		var useWorkers = true;
+		var loadFromLocalStorage = true;
+		
+		var settings = {
+			needsExport : false,
+			
+			unwrap : true,
+			diffuse : false,
+			night : true,
+			compressedTextures : true,
+			addTexture : "",
+			scale : 1,
+			ambient : 1,
+			//sunColor : new THREE.Vector3( 0.9, 0.9, 1.1 ),
+			//sunColor : new THREE.Vector3( 1.0, 0.8, 0.6 ),
+			sunColor : new THREE.Vector3( 1.0, 0.7, 0.4 ),
+			sunDirection : new THREE.Vector3( -0.5, 0.8, -0.3 ),
+			totalMultiply : new THREE.Vector3( 1, 1, 1 ),
+			penumbra : 0.007,
+			lights : [],
+			lightPresets : {}
+		}
+		
+		if( settings.needsExport ) {
+			//samples = 1024;
+			//bakeSize = 5760;
+		}
+		
+		var firstRender = true;
+		firstRender = false;
+		
+		THREE.Texture.prototype.clone = function() {
+			return this;
+		}
+		
+		var clock = new THREE.Clock();
+		var mixers = [];
+		
+		var save = function() {}
+		
+		document.getElementById( "samples" ).onchange = function( e ) {
+			samples = document.getElementById( "samples" ).value;
+		}
+		
+		document.getElementById( "bakesize" ).onchange = function( e ) {
+			bakeSize = document.getElementById( "bakesize" ).value;
+		}
+		
+		/*document.getElementById( "diffuse" ).onchange = function( e ) {
+			settings.diffuse = document.getElementById( "diffuse" ).checked;
+			save();
+		}*/
+		
+		document.getElementById( "export" ).onchange = function( e ) {
+			settings.needsExport = document.getElementById( "export" ).checked;
+		}
+		
+		var tempColor = new THREE.Color( settings.sunColor.x, settings.sunColor.y, settings.sunColor.z );
+		
+		function updateUIToSettings() {
+			
+			tempColor.setRGB( settings.sunColor.x, settings.sunColor.y, settings.sunColor.z );
+			document.getElementById( "suncolor" ).value = "#" + tempColor.getHexString();
+			
+			document.getElementById( "penumbra" ).value = settings.penumbra;
+			
+			document.getElementById( "ambient" ).value = settings.ambient;
+			
+			document.getElementById( "sunx" ).value = settings.sunDirection.x;
+			document.getElementById( "sunz" ).value = settings.sunDirection.z;
+			
+			//document.getElementById( "diffuse" ).checked = settings.diffuse;
+			save();
+		}
+		
+		updateUIToSettings();
+		
+		document.getElementById( "sunx" ).setAttribute( "min", -1 );
+		document.getElementById( "sunx" ).setAttribute( "max", 1 );
+		document.getElementById( "sunx" ).setAttribute( "step", 0.01 );
+		
+		document.getElementById( "sunz" ).setAttribute( "min", -1 );
+		document.getElementById( "sunz" ).setAttribute( "max", 1 );
+		document.getElementById( "sunz" ).setAttribute( "step", 0.01 );
+		
+		document.getElementById( "penumbra" ).setAttribute( "min", 0.007 );
+		document.getElementById( "penumbra" ).setAttribute( "max", 0.1 );
+		document.getElementById( "penumbra" ).setAttribute( "step", 0.001 );
+		
+		document.getElementById( "ambient" ).setAttribute( "min", 0 );
+		document.getElementById( "ambient" ).setAttribute( "max", 1 );
+		document.getElementById( "ambient" ).setAttribute( "step", 0.001 );
+		
+		document.getElementById( "suncolor" ).onchange = function( e ) {
+			tempColor.set( document.getElementById( "suncolor" ).value );
+			settings.sunColor.x = tempColor.r;
+			settings.sunColor.y = tempColor.g;
+			settings.sunColor.z = tempColor.b;
+			save();
+		}
+		
+		document.getElementById( "penumbra" ).onchange = function( e ) {
+			settings.penumbra = document.getElementById( "penumbra" ).value;
+			save();
+		}
+		
+		document.getElementById( "ambient" ).onchange = function( e ) {
+			settings.ambient = document.getElementById( "ambient" ).value;
+			save();
+		}
+		
+		document.getElementById( "sunx" ).onchange = function( e ) {
+			settings.sunDirection.x = document.getElementById( "sunx" ).value;
+			save();
+		}
+		document.getElementById( "sunz" ).onchange = function( e ) {
+			settings.sunDirection.z = document.getElementById( "sunz" ).value;
+			save();
+		}
+		
+		//document.getElementById( "lightcolor" ).value = "#" + tempColor.getHexString();
+		document.getElementById( "lightcolor" ).onchange = function( e ) {
+			if( selectedHitbox == null ) {
+				return;
+			}
+			tempColor.set( document.getElementById( "lightcolor" ).value );
+			var preset = settings.lightPresets[ selectedHitbox.light.preset ];
+			preset.color.x = tempColor.r;
+			preset.color.y = tempColor.g;
+			preset.color.z = tempColor.b;
+			//preset.color.divideScalar( 255 );
+			redoLights();
+			save();
+		}
+		
+		document.getElementById( "lightspot" ).onchange = function( e ) {
+			var preset = settings.lightPresets[ selectedHitbox.light.preset ];
+			preset.pointedDown = document.getElementById( "lightspot" ).value;
+			save();
+		}
+		
+		document.getElementById( "lightradius" ).onchange = function( e ) {
+			var preset = settings.lightPresets[ selectedHitbox.light.preset ];
+			preset.radius = document.getElementById( "lightradius" ).value;
+			redoLights();
+			save();
+		}
+		
+		document.getElementById( "lightscale" ).onchange = function( e ) {
+			var preset = settings.lightPresets[ selectedHitbox.light.preset ];
+			preset.scale = document.getElementById( "lightscale" ).value;
+			redoLights();
+			save();
+		}
+		
+		document.getElementById( "renamepreset" ).onclick = function() {
+			var preset = settings.lightPresets[ selectedHitbox.light.preset ];
+			var oldName = selectedHitbox.light.preset;
+			var newName = window.prompt( "New Preset Name:", selectedHitbox.light.preset );
+			if( settings.lightPresets[ newName ] != undefined || newName.length == 0 ) {
+				alert( "Name Taken or Invalid" );
+			} else {
+				redoLights();
+				for( var i = 0; i < lights.length; i++ ) {
+					if( lights[ i ].preset == oldName ) {
+						lights[ i ].preset = newName;
+					}
+				}
+				delete settings.lightPresets[ oldName ];
+				settings.lightPresets[ newName ] = preset;
+				updateUI();
+				redoLights();
+			}
+			save();
+		}
+		
+		document.getElementById( "presets" ).onchange = function( e ) {
+			if( selectedHitbox == null ) {
+				return;
+			}
+			var newPreset = document.getElementById( "presets" ).value;
+			selectedHitbox.light.preset = newPreset;
+			redoLights();
+			updateUI();
+			save();
+		}
+		
+		function updateUI() {
+			if( selectedHitbox == null ) {
+				document.getElementById( "perlight" ).style.visibility = "hidden";
+				document.getElementById( "perlight" ).style.display = "none";
+			} else {
+				document.getElementById( "perlight" ).style.visibility = "visible";
+				document.getElementById( "perlight" ).style.display = "initial";
+			}
+			document.getElementById( "presets" ).innerHTML = "";
+			var keys = Object.keys( settings.lightPresets );
+			for( var i = 0; i < keys.length; i++ ) {
+				let opt = document.createElement( "option" );
+				opt.value = keys[ i ];
+				opt.innerHTML = keys[ i ];
+				let preset = settings.lightPresets[ keys[ i ] ];
+				if( selectedHitbox != null && selectedHitbox.light.preset == keys[ i ] ) {
+					opt.selected = true;
+					tempColor.r = preset.color.x;
+					tempColor.g = preset.color.y;
+					tempColor.b = preset.color.z;
+					document.getElementById( "lightcolor" ).value = "#" + tempColor.getHexString();
+					document.getElementById( "lightspot" ).value = Number( preset.pointedDown );
+					document.getElementById( "lightradius" ).setAttribute( "min", 0.01 );
+					document.getElementById( "lightradius" ).setAttribute( "max", 1.5 );
+					document.getElementById( "lightradius" ).setAttribute( "step", 0.01 );
+					document.getElementById( "lightradius" ).value = Number( preset.radius );
+					
+					document.getElementById( "lightscale" ).setAttribute( "min", 0.1 );
+					document.getElementById( "lightscale" ).setAttribute( "max", 20 );
+					document.getElementById( "lightscale" ).setAttribute( "step", 0.1 );
+					document.getElementById( "lightscale" ).value = Number( preset.scale );
+				}
+				document.getElementById( "presets" ).appendChild( opt );
+			}
+		}
+		
+		
+		
+		var mapName = "dust2";
+		
+		
+		
+		var link = "/maps/dust2/input.glb";
+		
+		settings.lightPresets = {
+			"refineryyellow" : {
+				pointedDown : true,
+				radius : 0.7,
+				scale : 25 * 1.2,
+				intensity : 1.0,
+				color : new THREE.Vector3( 255, 180, 50 ).divideScalar( 255 )
+			},
+			"refinerywhite" : {
+				pointedDown : false,
+				radius : 0.5,
+				scale : 15 * 0.8,
+				intensity : 1,
+				color : new THREE.Vector3( 255, 255, 255 ).divideScalar( 255 )
+			},
+			"tfyellow" : {
+				pointedDown : false,
+				radius : 1,
+				scale : 15 * 0.7,
+				intensity : 1.0,
+				color : new THREE.Vector3( 255, 210, 120 ).divideScalar( 255 )
+			}
+		}
+		
+		if( mapName == "dust2" ) {
+			
+			settings.night = false;
+			settings.compressedTextures = false;
+			link = "/maps/dust2/input.glb";
+			settings.lightPresets = {
+				"refinerywhite" : {
+					pointedDown : false,
+					radius : 1,
+					scale : 15 * 1,
+					intensity : 0.8,
+					color : new THREE.Vector3( 255, 255, 255 ).divideScalar( 255 )
+				}
+			}
+			settings.lights =
+			[ { "preset":"refinerywhite","position":{ "x":-101.94898290379732,"y":-7.574652160959591,"z":218.49 } },{ "preset":"refinerywhite","position":{ "x":-129.16,"y":9.111465907144433,"z":-46.9576168746774 } },{ "preset":"refinerywhite","position":{ "x":86.4,"y":16.682393097823248,"z":29.98 } },{ "preset":"refinerywhite","position":{ "x":204.42060484985157,"y":16.902705679609962,"z":40.42 } },{ "preset":"refinerywhite","position":{ "x":65.40815039716172,"y":-4.423404280941823,"z":86.44 } } ]
+			
+		}
+		
+		
+		
+		
+		document.getElementById( "samples" ).value = 64;
+		samples = 64;
+		document.getElementById( "bakesize" ).value = 4096;
+		bakeSize = 4096;
+		
+		for( var i = 0; i < settings.lights.length; i++ ) {
+			settings.lights[ i ].position.x *= settings.scale;
+			settings.lights[ i ].position.y *= settings.scale;
+			settings.lights[ i ].position.z *= settings.scale;
+			if( settings.lightPresets[ settings.lights[ i ].preset ].intensity <= 0 ) {
+				settings.lights.splice( i, 1 );
+				i--;
+			}
+		}
+		
+		updateUI();
+		
+		var materialMap = {};
+		var animatedMaterials = [];
+		var animatedObjects = [];
+		
+		var canvas, bvh, bvhUniformStruct, noIndex, allGeometry;
+		var selectedHitbox;
+		var redoLights;
+		var lights = [];
+		var rebake = function() {}
+		
+		function init() {
+			var scene = new THREE.Scene();
+			var raycaster = new THREE.Raycaster();
+			var camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 0.5, 500 );
+			var cameraContainer = new THREE.Object3D();
+			cameraContainer.position.z = 5;
+			cameraContainer.lookAt( new THREE.Vector3( 0, 0, 0 ) );
+			camera.lookAt( new THREE.Vector3( 0, 0, 1 ) );
+			cameraContainer.add( camera );
+			//scene.add( cameraContainer );
+			
+			var lateral = new THREE.Object3D();
+			var yaw = new THREE.Object3D();
+			var pitch = new THREE.Object3D();
+			var walls = new THREE.Object3D();
+			scene.add( lateral );
+			lateral.add( yaw );
+			yaw.add( pitch );
+			pitch.add( cameraContainer );
+			
+			var renderer = new THREE.WebGLRenderer( { antialias : false, physicallyCorrectLights : false, preserveDrawingBuffer : true } );
+			renderer.sortObjects = false;
+			document.body.appendChild( renderer.domElement );
+			renderer.domElement.addEventListener( "contextmenu", function( e ) {
+				e.preventDefault();
+			} );
+			
+			function resize() {
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				renderer.domElement.style.width = window.innerWidth + "px";
+				renderer.domElement.style.height = window.innerHeight + "px";
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+			}
+			resize();
+			
+			var cubeRenderer = new THREE.WebGLRenderer( { antialias : false, physicallyCorrectLights : false } );
+			cubeRenderer.setSize( 5760, 5760 );
+			
+			var threemouse = new THREE.Vector2();
+			
+			var control = new THREE.TransformControls( camera, renderer.domElement );
+			control.setTranslationSnap( 0.01 );
+			control.setRotationSnap( THREE.MathUtils.degToRad( 1 ) );
+			control.setScaleSnap( 0.01 );
+			scene.add( control );
+			control.setSize( control.size * 0.8 );
+			control.frustumCulled = false;
+			control.setSpace( "local" );
+			control.addEventListener( "mouseUp", function( e ) {
+				save();
+			} );
+			
+			function attach( obj ) {
+				control.detach();
+				control.attach( obj );
+				if( !lightObject.visible ) {
+					lightObject.visible = true;
+					document.getElementById( "rightthemeui" ).style.display = "initial";
+					document.getElementById( "rightthemeui" ).style.visibility = "visible";
+					document.getElementById( "top" ).style.display = "initial";
+					document.getElementById( "top" ).style.visibility = "visible";
+				}
+				selectedHitbox = obj;
+				updateUI();
+			}
+			
+			function detach() {
+				control.detach();
+				selectedHitbox = null;
+				updateUI();
+			}
+			
+			var addType = "";
+			var addingHitbox = false;
+			
+			document.getElementById( "addlight" ).addEventListener( "click", function( e ) {
+				detach();
+				if( addType != "light" ) {
+					addingHitbox = true;
+				} else {
+					addingHitbox = !addingHitbox;
+				}
+				addType = "hitbox";
+			} );
+			
+			document.getElementById( "addpreset" ).addEventListener( "click", function( e ) {
+				if( selectedHitbox == undefined ) {
+					return;
+				}
+				// change preset
+				/*var preset = selectedHitbox.light.preset;
+				var presetKeys = Object.keys( lightPresets );
+				selectedHitbox.light.preset = presetKeys[ ( presetKeys.indexOf( preset ) + 1 ) % presetKeys.length ];
+				selectedHitbox.light.selected = true;
+				redoLights();*/
+				var preset = settings.lightPresets[ selectedHitbox.light.preset ];
+				var newName = prompt( "New Preset Name:", "" );
+				if( settings.lightPresets[ newName ] != undefined || newName.length == 0 ) {
+					alert( "Name Taken or Invalid" );
+				} else {
+					settings.lightPresets[ newName ] = JSON.parse( JSON.stringify( preset ) );
+					selectedHitbox.light.preset = newName;
+					redoLights();
+					updateUI();
+				}
+				save();
+			} );
+			
+			scene.add( walls );
+			
+			var objectParent = new THREE.Object3D();
+			scene.add( objectParent );
+			
+			scene.add( new THREE.AmbientLight( new THREE.Color( 0xffffff ), 1 ) );
+			
+			function generateRandomPoint( min, max ) {
+				var range = max - min;
+				var v = new THREE.Vector3();
+				v.x = Math.random() * range + min;
+				v.y = Math.random() * range + min;
+				v.z = Math.random() * range + min;
+				return v;
+			}
+			
+			var zeroVector = new THREE.Vector3();
+			function generatePointInSphere( radius ) {
+				if( radius == undefined ) {
+					radius = 1;
+				}
+				var pt = generateRandomPoint( -1, 1 );
+				while( pt.distanceTo( zeroVector ) > radius ) {
+					pt = generateRandomPoint( -1, 1 );
+				}
+				return pt;
+			}
+			
+			function generatePointInHemisphere( radius ) {
+				if( radius == undefined ) {
+					radius = 1;
+				}
+				var pt = generateRandomPoint( -1, 1 );
+				while( pt.z < -0.02 || pt.distanceTo( zeroVector ) > radius ) {
+					pt = generateRandomPoint( -1, 1 );
+				}
+				return pt;
+			}
+			
+			var sunDir = new THREE.Vector3( 0.5, 1, 0.5 );
+			sunDir.normalize();
+			
+			function getCoord( uv ) {
+				return uv.clone().multiplyScalar( bakeSize );
+			}
+			
+			function rand( min, max ) {
+				var range = max - min;
+				return Math.random() * range + min;
+			}
+			
+			function aabb( uv ) {
+				var a = getCoord( uv[ 0 ] );
+				var b = getCoord( uv[ 1 ] );
+				var c = getCoord( uv[ 2 ] );
+				var min = a.clone();
+				var max = a.clone();
+				var extras = [ b, c ];
+				for( var i = 0; i < extras.length; i++ ) {
+					var pt = extras[ i ];
+					if( pt.x < min.x ) {
+						min.x = pt.x;
+					}
+					if( pt.y < min.y ) {
+						min.y = pt.y;
+					}
+					if( pt.x > max.x ) {
+						max.x = pt.x;
+					}
+					if( pt.y > max.y ) {
+						max.y = pt.y;
+					}
+				}
+				min.floor();
+				max.ceil();
+				var pad = 2;
+				min.x -= pad;
+				min.y -= pad;
+				max.x += pad;
+				max.y += pad;
+				return {
+					min : min,
+					max : max
+				}
+			}
+			
+			function boundingSphere( a, b, c ) {
+				var avg = new THREE.Vector3();
+				var arr = [ a, b, c ];
+				for( var i = 0; i < arr.length; i++ ) {
+					avg.add( arr[ i ] );
+				}
+				avg.divideScalar( arr.length );
+				var closestDist = Infinity;
+				for( var i = 0; i < arr.length; i++ ) {
+					if( arr[ i ].distanceTo( avg ) < closestDist ) {
+						closestDist = arr[ i ].distanceTo( avg );
+					}
+				}
+				return {
+					type : "Bounding Sphere",
+					center : avg,
+					radius : closestDist
+				};
+			}
+			
+			function makeTriSpheres( geo ) {
+				var v = geo.vertices;
+				for( var i = 0; i < geo.faces.length; i++ ) {
+					var f = geo.faces[ i ];
+					geo.faces[ i ].bs = new boundingSphere( v[ f.a ], v[ f.b ], v[ f.c ] );
+				}
+			}
+			
+			var icosahedron = new THREE.IcosahedronGeometry( 1, icosphereDetail );
+			for( var i = 0; i < icosahedron.vertices.length; i++ ) {
+				if( icosahedron.vertices[ i ].z < 0.05 ) {
+					icosahedron.vertices.splice( i, 1 );
+					i--;
+				}
+			}
+			
+			function unwrap( object, callback ) {
+				object.updateWorldMatrix( true, true );
+				( async ()=>{
+					const geoms = [];
+					object.traverse( function ( child ) {
+						if( !child.visible ) {
+							child.parent.remove( child );
+							return;
+						}
+						if( child.isMesh && child.geometry && child.visible ) {
+							if( !child.geometry.index ) {
+								//child.geometry = child.geometry.clone();
+								child.geometry = mergeVertices( child.geometry ); // convert to indexed geometry
+							}
+							const geom = child.geometry;
+							child.updateMatrixWorld( true );
+							geom.applyMatrix4( child.matrixWorld );
+							geoms.push( geom );
+						}
+					} );
+					object.traverse( function( child ) {
+						child.position.setScalar( 0 );
+						child.scale.setScalar( 1 );
+						child.rotation.set( 0, 0, 0, "XYZ" );
+						child.updateMatrixWorld( true );
+					} );
+					object.updateWorldMatrix( true, true );
+					
+					for( var i = 0; i < geoms.length; i++ ) {
+						geoms[ i ].originalIndex = geoms[ i ].index.array.slice();
+						if( geoms[ i ].attributes.color ) {
+							geoms[ i ].originalColors = geoms[ i ].attributes.color.array.slice();
+						}
+						geoms[ i ].originalPositions = geoms[ i ].attributes.position.array.slice();
+					}
+					
+					await unwrapper.packAtlas( geoms, "uv2", "uv" );
+					
+					for( var j = 0; j < geoms.length; j++ ) {
+						var geometry = geoms[ j ];
+						if( !geometry.originalColors ) {
+							continue;
+						}
+						var newIndex = geometry.index.array;
+						var originalIndex = geometry.originalIndex;
+						var newPositions = geometry.attributes.position.array;
+						var originalPositions = geometry.originalPositions;
+						var oldColors = geometry.originalColors;
+						var newColors = geometry.attributes.color.array;
+						
+						for ( let i = 0; i < newIndex.length; i++ ) {
+							// The index points to a new vertex, let's try to match it with an original one
+							const newPosX = newPositions[ i * 3 ];
+							const newPosY = newPositions[ i * 3 + 1 ];
+							const newPosZ = newPositions[ i * 3 + 2 ];
+							
+							// Now we find the matching old vertex by comparing positions
+							for ( let j = 0; j < originalPositions.length / 3; j++ ) {
+								const oldPosX = originalPositions[ j * 3 ];
+								const oldPosY = originalPositions[ j * 3 + 1 ];
+								const oldPosZ = originalPositions[ j * 3 + 2 ];
+								
+								// If the positions match, we assume it's the same vertex and copy the color
+								if ( newPosX === oldPosX && newPosY === oldPosY && newPosZ === oldPosZ ) {
+									newColors[ i * 3 ] = oldColors[ j * 3 ];       // Red channel
+									newColors[ i * 3 + 1 ] = oldColors[ j * 3 + 1 ]; // Green channel
+									newColors[ i * 3 + 2 ] = oldColors[ j * 3 + 2 ]; // Blue channel
+									break; // We found the match, no need to continue
+								}
+							}
+						}
+						
+						// Step 5: Replace the color attribute with the reordered colors
+						geometry.setAttribute( 'color', new THREE.BufferAttribute( newColors, 3 ) );
+						
+						// Replace the color attribute with the newly ordered colors
+						geometry.needsUpdate = true;
+						geometry.attributes.color.needsUpdate = true;
+					}
+					
+					object.traverse( function ( child ) {
+						if( child.isMesh && child.geometry && child.visible ) {
+							const geom = child.geometry;
+							//geom.applyMatrix4( child.matrixWorld.clone().invert() );
+						}
+					} );
+					callback();
+				} )()
+			}
+			
+			var renderLightmapStep;
+			var lightmapNeedsUpdate = false;
+			
+			var composerRenderer = new THREE.WebGLRenderer( { alpha : true, antialias : false, preserveDrawingBuffer : true } );
+			composerRenderer.autoClearColor = false;
+			var renderSize = bakeSize;
+			composerRenderer.setSize( renderSize, renderSize );
+			
+			var composer = new THREE.EffectComposer( composerRenderer );
+			
+			var renderTargetOptions = {
+				type : THREE.FloatType,
+				magFilter : THREE.NearestFilter,
+				minFilter : THREE.NearestFilter,
+				depthBuffer : false
+			}
+			
+			var normalTarget = new THREE.WebGLRenderTarget( renderSize, renderSize, renderTargetOptions );
+			//var flatNormalTarget = new THREE.WebGLRenderTarget( renderSize, renderSize, renderTargetOptions );
+			var diffuseTarget = new THREE.WebGLRenderTarget( 5760, 5760, renderTargetOptions );
+			var positionTarget = new THREE.WebGLRenderTarget( renderSize, renderSize, renderTargetOptions );
+			var renderTarget = new THREE.WebGLRenderTarget( renderSize, renderSize, renderTargetOptions );
+			var lightTexture = new THREE.DataTexture( new Float32Array( 4 ), 1, 1 );
+			
+			lights = settings.lights;
+			
+			for( var i = 0; i < lights.length; i++ ) {
+				var pos = lights[ i ].position;
+				lights[ i ].position = new THREE.Vector3( pos.x, pos.y, pos.z );
+			}
+			
+			var lightPresetKeys = Object.keys( settings.lightPresets );
+			for( var i = 0; i < lightPresetKeys.length; i++ ) {
+				settings.lightPresets[ lightPresetKeys[ i ] ].scale *= settings.scale;
+				settings.lightPresets[ lightPresetKeys[ i ] ].radius *= settings.scale;
+			}
+			
+			var lightGeometry = new THREE.SphereGeometry( 1, 32, 16 );
+			var lightMaterials = {};
+			
+			function makeLight( light ) {
+				if( light.preset != undefined ) {
+					var preset = settings.lightPresets[ light.preset ];
+					var keys = Object.keys( preset );
+					for( var j = 0; j < keys.length; j++ ) {
+						light[ keys[ j ] ] = preset[ keys[ j ] ];
+					}
+				}
+				
+				var lightMat;
+				
+				if( lightMaterials[ light.preset ] != null ) {
+					lightMat = lightMaterials[ light.preset ];
+					lightMat.color.setRGB( light.color.x, light.color.y, light.color.z );
+					lightMat.needsUpdate = true;
+				} else {
+					lightMat = new THREE.MeshBasicMaterial( {
+						color : new THREE.Color( light.color.x, light.color.y, light.color.z ),
+						opacity : 0.5,
+						transparent : true,
+						depthWrite : false,
+					} );
+					lightMaterials[ light.preset ] = lightMat;
+				}
+				
+				var mesh = new THREE.Mesh( lightGeometry, lightMat );
+				mesh.scale.setScalar( light.radius );
+				//mesh.position.copy( light.position );
+				var oldMesh = mesh;
+				
+				mesh = oldMesh;
+				mesh.position.copy( light.position );
+				//mesh.add( oldMesh );
+				
+				mesh.light = light;
+				
+				mesh.isLightBall = true;
+				if( light.selected ) {
+					detach();
+					attach( mesh );
+				}
+				light.selected = false;
+				lightObject.add( mesh );
+				return mesh;
+			}
+			
+			var lightObject = new THREE.Object3D();
+			
+			function makeShallowLights() {
+				redoLights();
+				var newLights = [];
+				for( var i = 0; i < lights.length; i++ ) {
+					var newObj = {
+						preset : lights[ i ].preset,
+						position : lights[ i ].position.clone().divideScalar( settings.scale )
+					}
+					newLights.push( newObj );
+				}
+				return newLights;
+			}
+			
+			function logLights() {
+				var newLights = makeShallowLights();
+				console.log( JSON.stringify( newLights ) );
+			}
+			
+			function makeSaveObject() {
+				var newSettings = {
+					sunColor : settings.sunColor,
+					sunDirection : settings.sunDirection,
+					penumbra : settings.penumbra,
+					ambient : settings.ambient,
+					diffuse : settings.diffuse,
+					lights : makeShallowLights(),
+					lightPresets : settings.lightPresets
+				}
+				return newSettings;
+			}
+			
+			save = function() {
+				localStorage.lightData = JSON.stringify( makeSaveObject() );
+			}
+			
+			function loadSave( save ) {
+				if( save == "" || save == null ) {
+					return;
+				}
+				save = JSON.parse( save );
+				let keys = Object.keys( save );
+				for( var i = 0; i < keys.length; i++ ) {
+					if( settings[ keys[ i ] ] == undefined ) {
+						continue;
+					}
+					if( settings[ keys[ i ] ].isVector3 ) {
+						settings[ keys[ i ] ].copy( save[ keys[ i ] ] );
+					} else {
+						settings[ keys[ i ] ] = save[ keys[ i ] ];
+					}
+				}
+				detach();
+				lights = settings.lights;
+				lightObject.children = [];
+				for( var i = 0; i < lights.length; i++ ) {
+					lights[ i ].position = new THREE.Vector3().copy( lights[ i ].position );
+					lights[ i ].position.multiplyScalar( settings.scale );
+					makeLight( lights[ i ] );
+				}
+				updateUIToSettings();
+			}
+			
+			redoLights = function( canRemove ) {
+				var oldSelected = selectedHitbox;
+				detach();
+				if( lightObject.children.length != 0 || canRemove ) {
+					lights = [];
+					lightObject.traverse( function( child ) {
+						if( child.isLightBall && child.light != undefined ) {
+							var light = child.light;
+							light.position.copy( child.position );
+							light.selected = false;
+							if( oldSelected == child ) {
+								light.selected = true;
+							}
+							lights.push( light );
+						}
+					} );
+					settings.lights = lights;
+				}
+				
+				lightObject.children = [];
+				for( var i = 0; i < lights.length; i++ ) {
+					var light = lights[ i ];
+					makeLight( light );
+				}
+			}
+			
+			if( loadFromLocalStorage ) {
+				loadSave( localStorage.lightData );
+			}
+			
+			function bake( object, isGLTF, onlyAdd ) {
+				renderSize = bakeSize;
+				composerRenderer.setSize( renderSize, renderSize );
+				renderTarget.setSize( renderSize, renderSize );
+				
+				var usingUV2 = false;
+				var parentObject = new THREE.Object3D();
+				parentObject.add( object );
+				while( walls.children.length > 0 ) {
+					walls.remove( walls.children[ 0 ] );
+				}
+				walls.add( parentObject );
+				walls.add( lightObject );
+				
+				if( onlyAdd ) {
+					return;
+				}
+				
+				scene.updateMatrixWorld( true );
+				//object.children[ 0 ].material = new THREE.MeshNormalMaterial();
+				//console.log( "Baking" );
+				//console.time( "ao bake" );
+				var bakedPoints = 0;
+				
+				usingUV2 = true;
+				
+				if( allGeometry == undefined || true ) {
+					allGeometry = new THREE.Geometry();
+					parentObject.updateWorldMatrix( true, true );
+					parentObject.traverse( function( child ) {
+						if( child.geometry == undefined ) {
+							return;
+						}
+						//console.log( child.material.name );
+						//child.geometry.applyMatrix4( child.matrixWorld );
+						var newGeometry = child.geometry;
+						if( newGeometry.isBufferGeometry ) {
+							newGeometry = new THREE.Geometry().fromBufferGeometry( child.geometry );
+						}
+						child.geometry = newGeometry;
+						var geometry = child.geometry;
+						//geometry = newGeometry;
+						
+						var uvs = geometry.faceVertexUvs[ 0 ];
+						if( geometry.faceVertexUvs.length > 1 ) {
+							usingUV2 = true;
+							uvs = geometry.faceVertexUvs[ 1 ];
+						}
+						
+						allGeometry.merge( geometry, child.matrixWorld );
+						//allGeometry.merge( geometry );
+					} );
+					allGeometry.mergeVertices();
+				}
+				
+				//allGeometry = new THREE.Geometry().fromBufferGeometry( object.geometry );
+				
+				object.geometry = allGeometry;
+				
+				if( canvas == undefined ) {
+					canvas = document.createElement( "canvas" );
+					canvas.style.width = canvas.style.height = "256px";
+					document.getElementById( "top" ).appendChild( canvas );
+				}
+				canvas.width = canvas.height = bakeSize;
+				var c = canvas;
+				var ctx = canvas.getContext( "2d" );
+				
+				ctx.fillStyle = "#FFF";
+				ctx.globalAlpha = 1;
+				
+				composerRenderer.setClearColor( 0, 0 );
+				composerRenderer.clear();
+				var composerScene = new THREE.Scene();
+				var composerScenes = [];
+				var composerCamera = new THREE.OrthographicCamera( -1, 1, 1, -1, -5, 5 );
+				composerCamera.position.z = 1;
+				composerCamera.lookAt( new THREE.Vector3() );
+				composerScene.add( composerCamera );
+				
+				//return;
+				
+				if( normalTarget != undefined ) {
+					normalTarget.dispose();
+				}
+				normalTarget = new THREE.WebGLRenderTarget( renderSize, renderSize, renderTargetOptions );
+				composerRenderer.setRenderTarget( normalTarget );
+				composerRenderer.clear();
+				
+				var parentClone = parentObject.clone();
+				composerScene.add( parentClone );
+				
+				parentClone.traverse( function( child ) {
+					child.frustumCulled = false;
+				} );
+				
+				parentClone.traverse( function( child ) {
+					child.originalMaterial = child.material;
+				} );
+				
+				var normalMaterial = new THREE.ShaderMaterial( {
+					vertexShader : `
+						varying vec4 vNormal;
+						attribute vec2 uv2;
+						uniform vec2 offset;
+						
+						void main() {
+							vNormal = normalize( modelMatrix * vec4( normal, 0.0 ) );
+							gl_Position = vec4( ( uv2 + offset ) * 2.0 - 1.0, 0.0, 1.0 );
+							gl_Position.y *= -1.0;
+						}
+					`,
+					fragmentShader : `
+						varying vec4 vNormal;
+						
+						void main() {
+							gl_FragColor = vec4( normalize( vNormal ).xyz, 1.0 );
+						}
+					`,
+					side : THREE.DoubleSide,
+					fog : false,
+					uniforms : {
+						offset : new THREE.Uniform( new THREE.Vector2() )
+					}
+				} );
+				composerScenes = [];
+				parentClone.traverse( function( child ) {
+					if( child.material == undefined ) {
+						return;
+					}
+					if( !Array.isArray( child.material ) ) {
+						child.material = normalMaterial;
+						return;
+					}
+					var newMaterial = [];
+					for( var i = 0; i < child.material.length; i++ ) {
+						newMaterial[ i ] = normalMaterial;
+					}
+					child.material = newMaterial;
+				} );
+				
+				composerRenderer.render( composerScene, composerCamera );
+				
+				
+				
+				
+				composerRenderer.setRenderTarget( diffuseTarget );
+				composerRenderer.clear();
+				
+				var existingMaterials = [];
+				parentClone.traverse( function( child ) {
+					if( child.material == undefined ) {
+						return;
+					}
+					if( !Array.isArray( child.material ) ) {
+						for( var i = 0; i < existingMaterials.length; i++ ) {
+							if( existingMaterials[ i ].uniforms.map.value == child.originalMaterial.uniforms.map.value ) {
+								child.material = existingMaterials[ i ];
+								return;
+							}
+						}
+						
+						child.material = new THREE.ShaderMaterial( {
+							vertexShader : `
+								varying vec4 vNormal;
+								attribute vec2 uv2;
+								uniform vec2 offset;
+								varying vec2 vUv;
+								
+								void main() {
+									vUv = uv;
+									vNormal = normalize( modelMatrix * vec4( normal, 0.0 ) );
+									gl_Position = vec4( ( uv2 + offset ) * 2.0 - 1.0, 0.0, 1.0 );
+									gl_Position.y *= -1.0;
+								}
+							`,
+							fragmentShader : `
+								varying vec4 vNormal;
+								uniform sampler2D map;
+								varying vec2 vUv;
+								
+								void main() {
+									gl_FragColor = vec4( texture2D( map, vUv ).xyz, 1.0 );
+								}
+							`,
+							side : THREE.DoubleSide,
+							fog : false,
+							uniforms : {
+								offset : new THREE.Uniform( new THREE.Vector2() ),
+								map : {
+									value : child.originalMaterial.uniforms.map.value
+								}
+							}
+						} );
+						existingMaterials.push( child.material );
+						return;
+					}
+				} );
+				
+				composerRenderer.render( composerScene, composerCamera );
+				
+				
+				
+				
+				if( positionTarget != undefined ) {
+					positionTarget.dispose();
+				}
+				positionTarget = new THREE.WebGLRenderTarget( renderSize, renderSize, renderTargetOptions );
+				
+				composerRenderer.setRenderTarget( positionTarget );
+				composerRenderer.clear();
+				composerRenderer.setClearColor( 0, 0 );
+				composerRenderer.clear();
+				
+				var positionMaterial = new THREE.ShaderMaterial( {
+					vertexShader : `
+						centroid varying vec4 vPos;
+						attribute vec2 uv2;
+						uniform vec2 offset;
+						
+						void main() {
+							vPos = modelMatrix * vec4( position, 1.0 ) ;
+							gl_Position = vec4( ( uv2 + offset ) * 2.0 - 1.0, 0.0, 1.0 );
+							gl_Position.y *= -1.0;
+						}
+					`,
+					fragmentShader : `
+						varying vec4 vPos;
+						
+						void main() {
+							gl_FragColor = vec4( vPos.xyz, 1.0 );
+						}
+					`,
+					side : THREE.DoubleSide,
+					fog : false,
+					uniforms : {
+						offset : new THREE.Uniform( new THREE.Vector2() )
+					}
+				} );
+				parentClone.traverse( function( child ) {
+					if( child.material == undefined ) {
+						return;
+					}
+					if( !Array.isArray( child.material ) ) {
+						child.material = positionMaterial;
+						return;
+					}
+					var newMaterial = [];
+					for( var i = 0; i < child.material.length; i++ ) {
+						newMaterial[ i ] = positionMaterial;
+					}
+					child.material = newMaterial;
+				} );
+				
+				composerRenderer.setRenderTarget( positionTarget );
+				
+				composerRenderer.render( composerScene, composerCamera );
+				
+				if( renderTarget != undefined ) {
+					renderTarget.dispose();
+					renderTarget = new THREE.WebGLRenderTarget( renderSize, renderSize, renderTargetOptions );
+				}
+				
+				composerRenderer.setRenderTarget( renderTarget );
+				composerRenderer.clear();
+				
+				//console.log( allGeometry.faces.length );
+				
+				//return;
+				
+				
+				
+				if( bvh == undefined ) {
+					var allGeometryClone = allGeometry.clone();
+					for( var i = 0; i < allGeometryClone.faces.length; i++ ) {
+						allGeometryClone.faces[ i ].materialIndex = null;
+					}
+					noIndex = new THREE.BufferGeometry().fromGeometry( allGeometryClone );
+					noIndex = mergeVertices( noIndex );
+					bvh = new MeshBVHLib.MeshBVH( noIndex, { maxLeafTris : 1, strategy: MeshBVHLib.SAH } );
+					//console.log( bvh._roots );
+					bvhUniformStruct = new MeshBVHLib.MeshBVHUniformStruct();
+					bvhUniformStruct.updateFrom( bvh );
+				}
+				
+				var fullIcosahedron = new THREE.IcosahedronGeometry( 1, 7 );
+				var icosahedronVertices = [];
+				while( fullIcosahedron.vertices.length > 0 ) {
+					var index = Math.floor( Math.random() * fullIcosahedron.vertices.length );
+					icosahedronVertices.push( fullIcosahedron.vertices[ index ] );
+					fullIcosahedron.vertices.splice( index, 1 );
+				}
+				
+				icosahedronVertices = [];
+				
+				var up = new THREE.Vector3( 0, 1, 0 );
+				var close = 0;
+				
+				// 1024
+				// 64 and 8
+				for( var i = 0; i < samples; i++ ) {
+					var val = Math.random();
+					var length = 1 - Math.pow( val, 0.9 );
+					var x = Math.random() - 0.5;
+					var y = Math.random() - 0.5;
+					var z = Math.random() - 0.5;
+					var vec = new THREE.Vector3( x, y, z );
+					vec.normalize();
+					vec.multiplyScalar( length );
+					icosahedronVertices.push( vec );
+				}
+				
+				var icoPointsAtATime = 1;
+				var lightsAtATime = 50;
+				lightsAtATime = 100;
+				
+				//lightsAtATime = lights.length;
+				//lightsAtATime = 1;
+				lightsAtATime = 30;
+				
+				redoLights();
+				
+				for( var i = 0; i < lights.length; i++ ) {
+					let light = lights[ i ];
+					light.radiusScaleIntensity = new THREE.Vector4( light.radius, light.scale, light.intensity, light.pointedDown );
+				}
+				
+				var lightTexWidth = lights.length;
+				
+				var lightData = new Float32Array( 4 * Math.max( 1, lightTexWidth ) * 4 );
+				
+				for( var i = 0; i < lights.length; i++ ) {
+					let light = lights[ i ];
+					
+					let x = i * 4;
+					let y = 0;
+					let pos = y * lightTexWidth * 4 + x;
+					lightData[ pos ] = light.radius;
+					lightData[ pos + 1 ] = light.scale;
+					lightData[ pos + 2 ] = light.intensity;
+					lightData[ pos + 3 ] = light.pointedDown;
+					
+					pos = ( y + 1 ) * lightTexWidth * 4 + x;
+					lightData[ pos ] = light.position.x;
+					lightData[ pos + 1 ] = light.position.y;
+					lightData[ pos + 2 ] = light.position.z;
+					
+					pos = ( y + 2 ) * lightTexWidth * 4 + x;
+					lightData[ pos ] = light.color.x;
+					lightData[ pos + 1 ] = light.color.y;
+					lightData[ pos + 2 ] = light.color.z;
+				}
+				
+				lightTexture = new THREE.DataTexture( lightData, lightTexWidth, 4, THREE.RGBAFormat, THREE.FloatType );
+				
+				var lightmapMaterial = new THREE.ShaderMaterial( {
+					vertexShader : `
+						attribute vec2 uv2;
+						uniform vec2 offset;
+						varying vec2 vUv;
+						varying mat4 mm;
+						varying mat3 nm;
+						varying vec3 vcolor;
+						
+						void main() {
+							mm = modelMatrix;
+							nm = normalMatrix;
+							gl_Position = vec4( ( uv2 + offset ) * 2.0 - 1.0, 0.0, 1.0 );
+							gl_Position.y *= -1.0;
+							vUv = uv2;
+							vUv.y *= -1.0;
+							vUv.y += 1.0;
+							vcolor = color;
+						}
+					`,
+					fragmentShader : `
+						precision highp isampler2D;
+						precision highp usampler2D;
+						${ MeshBVHLib.shaderStructs }
+						${ MeshBVHLib.shaderIntersectFunction }
+						
+						uniform sampler2D positions;
+						uniform sampler2D normals;
+						//uniform sampler2D flatNormals;
+						uniform sampler2D diffuseTex;
+						uniform sampler2D lightTex;
+						uniform BVH bvh;
+						uniform int icoIndex;
+						uniform float opacity;
+						uniform float showFinal;
+						uniform float res;
+						uniform float normalExtrusion;
+						uniform float penumbra;
+						uniform float ambient;
+						uniform float samples;
+						uniform sampler2D renderTarget;
+						uniform sampler2D uvAttribute;
+						uniform bool enableDiffuse;
+						uniform bool justLights;
+						uniform int lightStart;
+						uniform int lightEnd;
+						uniform float nightMultiplier;
+						uniform vec3 sunColor;
+						uniform vec3 totalMultiply;
+						uniform vec3 sunDirection;
+						
+						#define icosahedronLength ${ icoPointsAtATime }
+						uniform vec3 icosahedronPoints[ icosahedronLength ];
+						uniform vec3 icosahedronPoint;
+						uniform vec3 icosahedronPoint2;
+						
+						struct Light {
+							vec4 radiusScaleIntensity;
+							vec3 position;
+							vec3 color;
+						};
+						
+						#define lightsAtATime ${ lightsAtATime }
+						#define lightTexWidth ${ lightTexWidth }
+						#define lightCount ${ Math.max( lights.length, 1 ) }
+						#ifdef USE_LIGHTS
+							uniform Light lights[ LIGHT_COUNT ];
+						#endif
+						
+						const float multiplierMultiplier = 0.72;
+						
+						varying vec2 vUv;
+						varying mat4 mm;
+						varying mat3 nm;
+						varying vec3 vcolor;
+						
+						float rand( vec2 co ) {
+							return fract( sin( dot( co, vec2( 12.9898, 78.233 ) ) ) * 43758.5453 );
+						}
+						
+						vec3 rand3( vec2 co ) {
+							float x = rand( co );
+							float y = rand( co + vec2( x ) );
+							float z = rand( co + vec2( y ) );
+							x = mod( x, 1.0 );
+							y = mod( y, 1.0 );
+							z = mod( z, 1.0 );
+							return vec3( x, y, z );
+						}
+						
+						void main() {
+							vec4 position = texture2D( positions, vUv );
+							vec4 normal = texture2D( normals, vUv );
+							//vec4 flatNormal = texture2D( flatNormals, vUv );
+							vec4 diffuse;
+							vec4 originalDiffuse = texture2D( diffuseTex, vUv );
+							
+							vec3 lightAdd = vec3( 0.0 );
+							
+							vec3 rayOrigin = vec3( position.r, position.g, position.b );
+							vec3 rayDirection = vec3( normal.r, normal.g, normal.b );
+							rayOrigin += rayDirection * 0.0004;
+							rayOrigin += rayDirection * normalExtrusion;
+							uvec4 faceIndices = uvec4( 0u );
+							vec3 faceNormal = vec3( 0.0, 0.0, 1.0 );
+							vec3 barycoord = vec3( 0.0 );
+							float side = 2.0;
+							float dist = 0.0;
+							
+							vec3 val = vec3( 0.0 );
+							
+							float newOpacity = 0.0;
+							float aoVal = 0.0;
+							float finalAOVal = 0.0;
+							float shadowVal = 0.0;
+							
+							vec3 icoPoint = icosahedronPoint;
+							icoPoint = icosahedronPoints[ 0 ];
+							
+							
+							
+							// Shadows
+							
+							#ifdef USE_SUNLIGHT
+								vec3 newDirection = normalize( sunDirection );
+								vec3 sunDir = newDirection;
+								int intersects = 0;
+								
+								float dotProductShade = min( dot( sunDir, normal.xyz ) * 3.0 - 0.4, 1.0 );
+								if( dotProductShade < 0.0 ) {
+									dotProductShade = 0.0;
+								}
+								if( vcolor.x > 0.5 && vcolor.y < 0.5 ) {
+									dotProductShade = 100.0;
+								}
+								vec3 newNewDirection = normalize( newDirection + icoPoint * penumbra + rand3( ( position.xz + position.xy + vec2( float( icoIndex ) * 1.0 ) ) * 100.0 ) * 0.002 );
+								side = 2.0;
+								bool hit = bvhIntersectFirstHit( bvh, rayOrigin, newNewDirection, faceIndices, faceNormal, barycoord, side, dist );
+								if( hit ) {
+									intersects++;
+								}
+								shadowVal = 1.0 - ( float( intersects ) / float( 1 ) );
+								if( dotProductShade < shadowVal ) {
+									shadowVal = dotProductShade;
+								}
+								newOpacity += 1.0;
+							#endif
+							
+							
+							
+							// Lights
+							
+							#ifdef USE_LIGHTS
+							
+								for( int q = 0; q < LIGHT_COUNT; q++ ) {
+									
+									/*int index = q + lightStart;
+									if( index >= lightEnd ) {
+										continue;
+									}*/
+									
+									Light light = lights[ q ];
+									
+									/*vec2 lightUV = vec2( ( float( index ) + 0.5 ) / float( lightTexWidth ), 0.0 );
+									Light light = Light(
+										texture2D( lightTex, lightUV ),
+										texture2D( lightTex, vec2( lightUV.x, 0.25 ) ).xyz,
+										texture2D( lightTex, vec2( lightUV.x, 0.5 ) ).xyz
+									);*/
+									
+									
+									float radius = light.radiusScaleIntensity.x;
+									float scale = light.radiusScaleIntensity.y;
+									float intensity = light.radiusScaleIntensity.z;
+									float pointedDown = light.radiusScaleIntensity.a;
+									
+									
+									vec3 lightPos = light.position + icoPoint * radius;
+									vec3 rayDir = ( lightPos - position.xyz );
+									vec3 lightDir = rayDir / scale;
+									vec3 toCenter = ( light.position - position.xyz ) / scale;
+									float toCenterDistSq = dot( toCenter, toCenter );
+									
+									if( toCenterDistSq > 4.0 * 4.0 ) {
+										continue;
+									}
+									
+									float lightDistSq = dot( lightDir, lightDir );
+									
+									float lightDist = sqrt( lightDistSq );
+									float toCenterDist = sqrt( toCenterDistSq );
+									
+									lightDir = normalize( lightDir );
+									// diffuse shading
+									float weight = max( dot( normal.xyz, toCenter ), 0.0 );
+									float attenuation = 1.0 / ( 1.0 * toCenterDist +
+									2.0 * ( toCenterDist * toCenterDist ) );
+									weight = attenuation * 0.2;
+									
+									if( weight < 0.015 ) {
+										//continue;
+									}
+									
+									
+									
+									if( pointedDown > 0.5 ) {
+										vec3 spotlightDirection = vec3( 0.0, 1.0, 0.0 );
+										if( pointedDown > 1.5 ) {
+											spotlightDirection *= -1.0;
+										}
+										float dotProductMultiply = dot( spotlightDirection, lightDir );
+										dotProductMultiply -= 0.4;
+										dotProductMultiply *= 1.3;
+										dotProductMultiply = min( dotProductMultiply, 1.0 );
+										dotProductMultiply = max( dotProductMultiply, 0.05 );
+										weight *= dotProductMultiply;
+									}
+									
+									if( weight < 0.002 ) {
+										continue;
+									}
+									
+									if( weight < 0.015 ) {
+										//continue;
+									}
+									
+									//float lightDist = distance( position.xyz, light.position );
+									float actualLightDist = lightDist * scale;
+									
+									side = 2.0;
+									//rayDir = normalize( rayDir );
+									rayDir /= actualLightDist;
+									bool lightHit = bvhIntersectFirstHit( bvh, rayOrigin, rayDir, faceIndices, faceNormal, barycoord, side, dist );
+									
+									if( lightHit && dist < actualLightDist ) {
+										weight *= 0.0;
+									}
+									
+									
+									
+									lightAdd += light.color * weight * intensity;
+								}
+								gl_FragColor = vec4( lightAdd, 0.0 );
+							
+							#endif
+							
+							
+							
+							// AO
+							
+							#ifdef USE_SUNLIGHT
+							
+								bool hit2 = false;
+								if( !justLights ) {
+									vec3 icoPoints[ 2 ] = vec3[]( icosahedronPoint, icosahedronPoint2 );
+									for( int i = 0; i < icoPoints.length(); i++ ) {
+										float maxDist = 15.0 * 0.7;
+										side = 2.0;
+										vec3 aoPoint = icoPoints[ i ];
+										
+										if( vcolor.x > 0.5 && vcolor.y < 0.5 ) {
+											normal.xyz = vec3( 0.0, 1.0, 0.0 );
+										}
+										
+										if( dot( aoPoint, normal.xyz ) < 0.0 ) {
+											aoPoint *= -1.0;
+										}
+										
+										//if( dot( aoPoint, normal.xyz ) > 0.0 ) {
+											hit2 = bvhIntersectFirstHit( bvh, rayOrigin, normalize( aoPoint ), faceIndices, faceNormal, barycoord, side, dist );
+											/* } else {
+												hit2 = false;
+											}*/
+											
+											if( hit2 && dist < maxDist ) {
+												aoVal += ( dist / maxDist );
+											} else {
+												aoVal += 1.0;
+											}
+											aoVal = ( aoVal - 0.5 ) * 2.0;
+											//aoVal = ( aoVal - 0.6 ) * 2.4;
+											//aoVal = ( aoVal - 0.7 ) * 2.8;
+											/*if( aoVal < -1.0 ) {
+												aoVal = -1.0;
+											}*/
+											if( aoVal > 1.0 ) {
+												aoVal = 1.0;
+											}
+											if( aoVal < 0.0 ) {
+												aoVal = 0.0;
+											}
+											finalAOVal += aoVal / float( icoPoints.length() );
+										}
+										newOpacity += 1.0;
+									}
+									
+									
+									
+									// Diffuse
+									
+									if( enableDiffuse && !justLights ) {
+										//aoPoint *= -1.0;
+										//bool hit3 = bvhIntersectFirstHit( bvh, rayOrigin, normalize( aoPoint ), faceIndices, faceNormal, barycoord, side, dist );
+										
+										float diffuseMaxDist = 35.0 * 0.5;
+										diffuseMaxDist *= 0.2;
+										
+										if( hit2 && dist < diffuseMaxDist ) {
+											vec2 diffuseUV = textureSampleBarycoord(
+												uvAttribute,
+												barycoord,
+												faceIndices.xyz
+											).xy;
+											diffuseUV.y *= -1.0;
+											diffuseUV.y += 1.0;
+											diffuse += vec4( texture2D( diffuseTex, diffuseUV ).xyz * ( 1.0 - dist / diffuseMaxDist ) * 1.3, ( 1.0 - dist / diffuseMaxDist ) );
+										}
+									}
+									
+									val += sunColor * vec3( shadowVal / float( icosahedronLength ) * nightMultiplier );
+									val += vec3( finalAOVal / float( icosahedronLength ) * nightMultiplier ) * ambient;
+									
+									val = vec3( 0.1 ) * ambient + val * 0.7;
+									
+									float il = float( icosahedronLength );
+									
+									diffuse /= il;
+									//diffuse *= 1.1;
+									
+									vec3 diffuseMult = vec3( 1.0 ) * ( 1.0 - diffuse.a ) + ( diffuse.xyz * diffuse.a );
+									
+									gl_FragColor = vec4( val * diffuseMult / 2.0 + lightAdd, opacity );
+									
+								#endif
+								
+								gl_FragColor.xyz *= multiplierMultiplier;
+								
+								#ifdef SHOW_FINAL
+									vec4 ret = texture2D( renderTarget, vUv );
+									gl_FragColor = ret / ret.a;
+									//gl_FragColor = ret / samples;
+									gl_FragColor.xyz *= totalMultiply;
+									
+									//gl_FragColor = normal;
+									//gl_FragColor = position / 50.0;
+									//gl_FragColor = flatNormal;
+									//gl_FragColor = originalDiffuse;
+									
+									gl_FragColor.a = 1.0;
+								#endif
+							}
+						`,
+						side : THREE.DoubleSide,
+						fog : false,
+						transparent : false,
+						depthTest : false,
+						blending : THREE.CustomBlending,
+						blendEquation : THREE.AddEquation,
+						blendSrc : THREE.OneFactor,
+						blendDst : THREE.OneFactor,
+						vertexColors : THREE.VertexColors,
+						defines : {},
+						uniforms : {
+							offset : new THREE.Uniform( new THREE.Vector2() ),
+							positions : {
+								value : positionTarget.texture
+							},
+							normals : {
+								value : normalTarget.texture
+							},
+							/*flatNormals : {
+								value : flatNormalTarget.texture
+							},*/
+							diffuseTex : {
+								value : diffuseTarget.texture
+							},
+							lightTex : {
+								value : lightTexture
+							},
+							uvAttribute : {
+								value : new MeshBVHLib.FloatVertexAttributeTexture()
+							},
+							renderTarget : {
+								value : null
+							},
+							bvh : {
+								value : bvhUniformStruct
+							},
+							icosahedronPoints : {
+								value : []
+							},
+							icosahedronPoint : {
+								value : new THREE.Vector3().copy( icosahedronVertices[ 0 ] )
+							},
+							icosahedronPoint2 : {
+								value : new THREE.Vector3().copy( icosahedronVertices[ 1 ] )
+							},
+							icoIndex : {
+								value : -1
+							},
+							showFinal : {
+								value : 0
+							},
+							opacity : {
+								value : 1
+							},
+							normalExtrusion : {
+								value : 0
+							},
+							res : {
+								value : renderSize
+							},
+							lights : {
+								value : lights
+							},
+							justLights : {
+								value : false
+							},
+							lightStart : {
+								value : lights.length
+							},
+							lightEnd : {
+								value : lightsAtATime
+							},
+							enableDiffuse : {
+								value : settings.diffuse
+							},
+							nightMultiplier : {
+								value : settings.night ? 0.5 : 1
+							},
+							totalMultiply : {
+								value : settings.totalMultiply
+							},
+							sunColor : {
+								value : new THREE.Vector3( settings.sunColor.x, settings.sunColor.y, settings.sunColor.z )
+							},
+							sunDirection : {
+								value : settings.sunDirection
+							},
+							penumbra : {
+								value : settings.penumbra
+							},
+							ambient : {
+								value : settings.ambient
+							},
+							samples : {
+								value : samples
+							}
+						}
+					} );
+					if( lights.length > 0 && !firstRender ) {
+						lightmapMaterial.defines[ "USE_LIGHTS" ] = true;
+					}
+					lightmapMaterial.uniforms.uvAttribute.value.updateFrom( noIndex.attributes.uv2 );
+					for( var i = 0; i < icoPointsAtATime; i++ ) {
+						lightmapMaterial.uniforms.icosahedronPoints.value.push( generatePointInSphere() );
+					}
+					parentClone.traverse( function( child ) {
+						if( child.material == undefined ) {
+							return;
+						}
+						if( !Array.isArray( child.material ) ) {
+							child.material = lightmapMaterial;
+							return;
+						}
+						var newMaterial = [];
+						for( var i = 0; i < child.material.length; i++ ) {
+							newMaterial[ i ] = lightmapMaterial;
+						}
+						child.material = newMaterial;
+					} );
+					
+					composerRenderer.setRenderTarget( null );
+					composerRenderer.clear();
+					
+					composerRenderer.setClearColor( new THREE.Color( 0, 0, 0 ), 0 );
+					composerRenderer.setRenderTarget( renderTarget );
+					composerRenderer.clear();
+					composerRenderer.setRenderTarget( null );
+					composerRenderer.setClearColor( new THREE.Color( 0, 0, 0 ), 0 );
+					composerRenderer.clear();
+					
+					//composerRenderer.render( composerScene, composerCamera );
+					
+					composerRenderer.setRenderTarget( renderTarget );
+					
+					var progressCanvas = document.getElementById( "progress" );
+					var progressCtx = progressCanvas.getContext( "2d" );
+					
+					function setDefines() {
+						lightmapMaterial.defines[ "USE_LIGHTS" ] = true;
+						if( lights.length == 0 ) {
+							delete lightmapMaterial.defines[ "USE_LIGHTS" ];
+						}
+						lightmapMaterial.defines[ "USE_SUNLIGHT" ] = true;
+						if( lightmapMaterial.uniforms.justLights.value ) {
+							delete lightmapMaterial.defines[ "USE_SUNLIGHT" ];
+						}
+						
+						var newLights = [];
+						for( var i = lightmapMaterial.uniforms.lightStart.value; i < lightmapMaterial.uniforms.lightEnd.value; i++ ) {
+							newLights[ i - lightmapMaterial.uniforms.lightStart.value ] = lights[ i ];
+						}
+						lightmapMaterial.uniforms.lights.value = newLights;
+						lightmapMaterial.uniforms.lights.needsUpdate = true;
+						
+						lightmapMaterial.defines[ "LIGHT_COUNT" ] = newLights.length;
+						
+						lightmapMaterial.needsUpdate = true;
+					}
+					
+					renderLightmapStep = function() {
+						console.log( "Render Step" );
+						
+						//lightmapNeedsUpdate = false;
+						//return;
+						
+						lightmapMaterial.uniforms.lightStart.value += lightsAtATime;
+						lightmapMaterial.uniforms.lightStart.needsUpdate = true;
+						lightmapMaterial.uniforms.lightEnd.value = Math.min( lights.length, lightmapMaterial.uniforms.lightStart.value + lightsAtATime );
+						lightmapMaterial.uniforms.lightEnd.needsUpdate = true;
+						
+						lightmapMaterial.uniforms.justLights.value = true;
+						lightmapMaterial.uniforms.justLights.needsUpdate = true;
+						
+						setDefines();
+						
+						if( lightmapMaterial.uniforms.lightStart.value >= lights.length ) {
+							
+							lightmapMaterial.uniforms.lightStart.value = 0;
+							lightmapMaterial.uniforms.lightEnd.value = Math.min( lightsAtATime, lights.length );
+							lightmapMaterial.uniforms.justLights.value = false;
+							
+							setDefines();
+							
+							lightmapMaterial.uniforms.icoIndex.value++;
+							if( lightmapMaterial.uniforms.icoIndex.value < icosahedronVertices.length ) {
+								//lightmapMaterial.uniforms.icosahedronPoint.value.copy( icosahedronVertices[ lightmapMaterial.uniforms.icoIndex.value ] );
+								lightmapMaterial.uniforms.icosahedronPoint.value.copy( generatePointInSphere() );
+								lightmapMaterial.uniforms.icosahedronPoint.needsUpdate = true;
+								lightmapMaterial.uniforms.icosahedronPoint2.value.copy( generatePointInSphere() );
+								lightmapMaterial.uniforms.icosahedronPoint2.needsUpdate = true;
+							}
+							
+							for( var i = 0; i < icoPointsAtATime; i++ ) {
+								lightmapMaterial.uniforms.icosahedronPoints.value[ i ].copy( generatePointInSphere() );
+								lightmapMaterial.uniforms.icosahedronPoints.needsUpdate = true;
+							}
+							
+							lightmapMaterial.uniforms.icosahedronPoint.needsUpdate = true;
+							var samples = lightmapMaterial.uniforms.icoIndex.value;
+							lightmapMaterial.uniforms.opacity.value = 1 - samples / icosahedronVertices.length;
+							lightmapMaterial.uniforms.opacity.value = 1 / icosahedronVertices.length;
+							lightmapMaterial.uniforms.opacity.value = 1;
+							lightmapMaterial.uniforms.opacity.needsUpdate = true;
+							
+							lightmapMaterial.uniforms.normalExtrusion.value = Math.random() * 0.002;
+							lightmapMaterial.uniforms.normalExtrusion.value = 0;
+							lightmapMaterial.uniforms.normalExtrusion.needsUpdate = true;
+							
+							var ctx = progressCtx;
+							progressCanvas.width = window.innerWidth;
+							ctx.clearRect( 0, 0, progressCanvas.width, progressCanvas.height );
+							ctx.fillStyle = "#0F0";
+							ctx.fillRect( 0, 0, lightmapMaterial.uniforms.icoIndex.value / icosahedronVertices.length * progressCanvas.width, progressCanvas.height );
+							if( lightmapMaterial.uniforms.icoIndex.value >= icosahedronVertices.length ) {
+								progressCanvas.style.display = "none";
+								progressCanvas.style.visibility = "hidden";
+							} else {
+								progressCanvas.style.display = "initial";
+								progressCanvas.style.visibility = "visible";
+							}
+							
+							if( lightmapMaterial.uniforms.icoIndex.value >= icosahedronVertices.length ) {
+								
+								lightmapNeedsUpdate = false;
+								composerRenderer.setRenderTarget( null );
+								composerRenderer.clear();
+								lightmapMaterial.uniforms.showFinal.value = 1;
+								lightmapMaterial.uniforms.showFinal.needsUpdate = true;
+								lightmapMaterial.uniforms.renderTarget.value = renderTarget.texture;
+								lightmapMaterial.uniforms.renderTarget.needsUpdate = true;
+								
+								lightmapMaterial.defines[ "SHOW_FINAL" ] = true;
+								if( lightmapMaterial.defines[ "USE_LIGHTS" ] ) {
+									delete lightmapMaterial.defines[ "USE_LIGHTS" ];
+								}
+								if( lightmapMaterial.defines[ "USE_SUNLIGHT" ] ) {
+									delete lightmapMaterial.defines[ "USE_SUNLIGHT" ];
+								}
+								lightmapMaterial.needsUpdate = true;
+								
+								//composerRenderer.render( composerScene, composerCamera );
+								
+								if( normalTarget != undefined ) {
+									normalTarget.dispose();
+									normalTarget = undefined;
+								}
+								if( positionTarget != undefined ) {
+									positionTarget.dispose();
+									positionTarget = undefined;
+								}
+								
+								composer.passes = [];
+								var renderPass = new THREE.RenderPass( composerScene, composerCamera );
+								composer.addPass( renderPass );
+								var closePass = new THREE.ShaderPass( {
+									uniforms : {
+										"tDiffuse" : { value : null },
+										"lightMapIntensity" : { value : 1 },
+										"res" : { value : renderSize },
+										"totalMultiply" : { value : settings.totalMultiply },
+										"samples" : { value : samples }
+									},
+									vertexShader : `
+										varying vec2 vUv;
+										void main() {
+											vUv = uv;
+											gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+										}
+									`,
+									fragmentShader : `
+										uniform sampler2D tDiffuse;
+										uniform float res;
+										uniform float samples;
+										uniform vec3 totalMultiply;
+										
+										varying vec2 vUv;
+										
+										void main() {
+											vec4 ret = texture2D( tDiffuse, vUv );
+											
+											/*if( ret.a > 0.0 ) {
+												ret = ret / ret.a;
+												//ret = ret / samples;
+												ret.xyz *= totalMultiply;
+												ret.a = 1.0;
+											}*/
+											
+											if( ret.a < 0.01 ) {
+												vec4 closestColor = vec4( 0.0 );
+												float closestDistance = 999999.99;
+												for( int x = -15; x <= 15; x++ ) {
+													for( int y = -15; y <= 15; y++ ) {
+														vec2 newuv = vUv + vec2( float( x ), float( y ) ) / res;
+														if( newuv.x < 0.0 || newuv.y < 0.0 || newuv.x > 1.0 || newuv.y > 1.0 ) {
+															continue;
+														}
+														vec4 test = texture2D( tDiffuse, newuv );
+														float texDist = float( x ) * float( x ) + float( y ) * float( y );
+														if( test.a > 0.5 && texDist < closestDistance ) {
+															closestColor = test;
+															closestDistance = texDist;
+														}
+													}
+												}
+												//ret = vec4( 1.0, 0.0, 0.0, 1.0 );
+												ret = closestColor;
+											}
+											ret.a = 1.0;
+											gl_FragColor = ret;
+										}
+									`
+								} );
+								composer.addPass( closePass );
+								composer.reset();
+								composer.render();
+								
+								object.traverse( function( child ) {
+									if( child.material == undefined ) {
+										return;
+									}
+									if( !Array.isArray( child.material ) ) {
+										return;
+									}
+									for( var i = 0; i < child.material.length; i++ ) {
+										//child.material[ i ].uniforms.lightmap.value = new THREE.CanvasTexture( composerRenderer.domElement );
+										child.material[ i ].uniforms.lightmap.needsUpdate = true;
+									}
+								} );
+								
+								finish();
+								return;
+							}
+						}
+						//console.log( "Start: " + lightmapMaterial.uniforms.lightStart.value );
+						//console.log( "End: " + lightmapMaterial.uniforms.lightEnd.value );
+						composerRenderer.render( composerScene, composerCamera );
+					}
+					lightmapNeedsUpdate = true;
+					
+					var finished = false;
+					function finish() {
+						firstRender = false;
+						/*if( finished ) {
+							return;
+						}
+						finished = true;*/
+						ctx.drawImage( composerRenderer.domElement, 0, 0 );
+						//imgData = ctx.getImageData( 0, 0, c.width, c.height );
+						
+						console.log( "Finished, finding closest color" );
+						
+						//console.timeEnd( "ao bake" );
+						//ctx.putImageData( imgData, 0, 0 );
+						var newCanvas = document.createElement( "canvas" );
+						var newCtx = newCanvas.getContext( "2d" );
+						newCanvas.width = newCanvas.height = canvas.width;
+						//newCanvas.width = newCanvas.height = Math.min( canvas.width, 4096 );
+						newCtx.drawImage( canvas, 0, 0, newCanvas.width, newCanvas.height );
+						canvas.width = canvas.height = newCanvas.width;
+						if( blur ) {
+							// 0.8
+							ctx.filter = "blur( " + ( 0.8 ) + "px )";
+						}
+						ctx.drawImage( newCanvas, 0, 0, newCanvas.width, newCanvas.height );
+						
+						var texture = new THREE.CanvasTexture( canvas );
+						texture.magFilter = THREE.LinearFilter;
+						texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+						texture.minFilter = THREE.NearestFilter;
+						texture.generateMipmaps = false;
+						texture.flipY = false;
+						
+						object.traverse( function( child ) {
+							if( child.material == undefined || child.isLightBall ) {
+								return;
+							}
+							var materials = child.material;
+							if( !Array.isArray( materials ) ) {
+								materials = [ materials ];
+							}
+							for( var i = 0; i < materials.length; i++ ) {
+								if( materials[ i ].uniforms == undefined || materials[ i ].uniforms.lightmap == undefined ) {
+									continue;
+								}
+								materials[ i ].uniforms.lightmap.value = texture;
+								materials[ i ].uniforms.lightmap.needsUpdate = true;
+							}
+						} );
+						
+						obj = parentObject;
+						
+						
+						
+						var scaleBackObj = new THREE.Object3D();
+						scaleBackObj.scale.setScalar( 1 / settings.scale );
+						scaleBackObj.updateMatrixWorld();
+						obj.traverse( function( child ) {
+							if( child.geometry && !child.geometry.isBufferGeometry ) {
+								child.geometry = new THREE.BufferGeometry().fromGeometry( child.geometry );
+								//child.geometry = mergeVertices( child.geometry );
+							}
+						} );
+						
+						if( settings.needsExport ) {
+							obj2 = obj.clone();
+							obj2.traverse( function( child ) {
+								if( child.geometry ) {
+									child.geometry = child.geometry.clone();
+									child.geometry.applyMatrix4( scaleBackObj.matrix );
+								}
+								if( child.material ) {
+									child.material = new THREE.MeshBasicMaterial( {
+										name : child.material.name,
+										alphaTest : child.material.alphaTest,
+										transparent : child.material.transparent,
+										map : child.material.uniforms.map.value
+									} );
+								}
+							} );
+							
+							const exporter = new THREE.GLTFExporter();
+							exporter.parse( obj2, function( gltf ) {
+								//console.log( gltf );
+								download( gltf, "gioutput.gltf" );
+							}, {
+								embedImages : true
+							} );
+						}
+						//exportObject( obj );
+					}
+					//finish();
+				}
+				
+				var lightmapShaders = [];
+				
+				function combineObject( obj ) {
+					obj.traverse( function( child ) {
+						//child.material = new THREE.MeshBasicMaterial( { color : 0xffffff } );
+					} );
+					//return obj;
+					let allGeometry = new THREE.Geometry();
+					//console.log( allGeometry.faceVertexUvs );
+					//allGeometry.faceVertexUvs[ 1 ] = [];
+					obj.updateWorldMatrix( true, true );
+					var newMaterialArray = [];
+					var newObjects = [];
+					var combinedObjects = 0;
+					obj.traverse( function( child ) {
+						if( child.geometry == undefined || child.material == undefined ) {
+							return;
+						}
+						//console.log( child.material );
+						//child.geometry.applyMatrix4( child.matrixWorld );
+						child.geometry = new THREE.Geometry().fromBufferGeometry( child.geometry );
+						if( child.geometry.faceVertexUvs.length > 1 ) {
+							child.geometry.faceVertexUvs.splice( 1, 1 );
+						}
+						if( !Array.isArray( child.material ) ) {
+							child.material = [ child.material ];
+						}
+						for( var i = 0; i < child.geometry.faces.length; i++ ) {
+							if( child.geometry.faces[ i ].materialIndex == undefined ) {
+								child.geometry.faces[ i ].materialIndex = 0;
+							}
+							if( newMaterialArray.indexOf( child.material[ child.geometry.faces[ i ].materialIndex ] ) != -1 ) {
+								child.geometry.faces[ i ].materialIndex = newMaterialArray.indexOf( child.material[ child.geometry.faces[ i ].materialIndex ] );
+								//child.geometry.faces[ i ].materialIndex = 0;
+							} else {
+								newMaterialArray.push( child.material[ child.geometry.faces[ i ].materialIndex ] );
+								child.geometry.faces[ i ].materialIndex = newMaterialArray.length - 1;
+							}
+							//child.geometry.faces[ i ].materialIndex = undefined;
+						}
+						var geometry = child.geometry;
+						
+						combinedObjects++;
+						allGeometry.merge( geometry, child.matrixWorld );
+						
+						if( combinedObjects > 30 ) { // 60 seems good for actual baking
+						allGeometry.mergeVertices();
+						allGeometry.sortFacesByMaterialIndex();
+						newObjects.push( new THREE.Mesh( allGeometry, newMaterialArray ) );
+						allGeometry = new THREE.Geometry();
+						newMaterialArray = [];
+						combinedObjects = 0;
+						//return;
+					}
+				} );
+				//allGeometry.mergeVertices();
+				
+				/*if( allGeometry.faceVertexUvs.length > 1 ) {
+					allGeometry.faceVertexUvs.splice( 1, 1 );
+				}*/
+				
+				allGeometry.mergeVertices();
+				allGeometry.sortFacesByMaterialIndex();
+				newObjects.push( new THREE.Mesh( allGeometry, newMaterialArray ) );
+				
+				//console.log( newMaterialArray );
+				
+				var newObj = new THREE.Object3D();
+				
+				/*newObj.geometry = allGeometry;
+				newObj.geometry = new THREE.BufferGeometry().fromGeometry( newObj.geometry );
+				newObj.geometry = mergeVertices( newObj.geometry );*/
+				
+				for( var i = 0; i < newObjects.length; i++ ) {
+					newObj.add( newObjects[ i ] );
+				}
+				
+				//newObj.geometry.mergeVertices() ;
+				//mergeVertices( newObj.geometry );
+				//newObj.geometry = allGeometry;
+				return newObj;
+			}
+			
+			let redCanvas = document.createElement( "canvas" );
+			redCanvas.width = redCanvas.height = 1;
+			let redCtx = redCanvas.getContext( "2d" );
+			redCtx.fillStyle = "#F00";
+			redCtx.fillRect( 0, 0, 1, 1 );
+			let missingTexture = new THREE.CanvasTexture( redCanvas );
+			
+			function setupWorldMaterial( obj ) {
+				
+				//animatedMaterials = [];
+				obj.updateWorldMatrix( true, true );
+				
+				var grayCanvas = document.createElement( "canvas" );
+				var grayCtx = grayCanvas.getContext( "2d" );
+				grayCtx.fillStyle = "#888";
+				grayCtx.fillRect( 0, 0, grayCanvas.width, grayCanvas.height );
+				var grayTexture = new THREE.CanvasTexture( grayCanvas );
+				
+				var existingLightmapMats = {};
+				
+				obj.traverse( function( child ) {
+					if( child.scale.x < 0 && child.scale.y < 0 && child.scale.z < 0 ) {
+						//child.scale.multiplyScalar( -1 );
+						if( child.geometry ) {
+							//console.log( child.geometry );
+							//child.geometry.scale( -1, -1, -1 );
+							child.geometry.applyMatrix4( new THREE.Matrix4().makeScale( -1, 1, 1 ) );
+						}
+					}
+					if( !child.geometry ) {
+						return;
+					}
+					
+					var newObjects = [ child ];
+					var i = 0;
+					
+					if( child.geometry.isBufferGeometry ) {
+						child.geometry = new THREE.Geometry().fromBufferGeometry( child.geometry );
+					}
+					var geo = child.geometry;
+					
+					if( Array.isArray( child.material ) ) {
+						for( var i = 0; i < child.material.length; i++ ) {
+							if( child.material[ i ].map ) {
+								child.material[ i ].map.updateMatrix();
+							}
+						}
+					} else if( child.material.map != undefined ) {
+						child.material.map.updateMatrix();
+					}
+					
+					for( var i = 0; i < geo.faceVertexUvs[ 0 ].length; i++ ) {
+						for( var j = 0; j < geo.faceVertexUvs[ 0 ][ i ].length; j++ ) {
+							var material = child.material;
+							if( geo.faces[ i ].materialIndex != undefined && Array.isArray( material ) ) {
+								material = material[ geo.faces[ i ].materialIndex ];
+							}
+							if( material.map == undefined ) {
+								continue;
+							}
+							geo.faceVertexUvs[ 0 ][ i ][ j ].applyMatrix3( material.map.matrix );
+						}
+					}
+					
+					if( !child.geometry.isBufferGeometry ) {
+						child.geometry = new THREE.BufferGeometry().fromGeometry( child.geometry );
+					}
+					
+					var materials = child.material;
+					var singleMaterial = false;
+					if( !Array.isArray( materials ) ) {
+						materials = [ child.material ];
+						singleMaterial = true;
+					}
+					
+					for( var j = 0; j < materials.length; j++ ) {
+						var matName = materials[ j ].name;
+						var ret = new RegExp( `\\.[0-9][0-9][0-9]` ).exec( matName );
+						if( ret != null ) {
+							matName = matName.substr( 0, ret.index );
+						}
+						matName = matName.replace( / /g, '' );
+						if( existingLightmapMats[ matName ] != undefined ) {
+							materials[ j ] = existingLightmapMats[ matName ];
+							continue;
+						}
+						if( materials[ j ].map == undefined ) {
+							console.log( materials[ j ] );
+							materials[ j ].map = missingTexture;
+							//continue;
+						}
+						var newMat;
+						var oldFlipY = materials[ j ].map.flipY;
+						if( matName == "animatedgrass" ) {
+							newMat = loadTexture( "/textures/tfgrass.png" );
+							newMat.wrapS = THREE.ClampToEdgeWrapping;
+							newMat.wrapT = THREE.ClampToEdgeWrapping;
+							newMat.anisotropy = 0;
+							newMat.minFilter = THREE.NearestFilter;
+						} else {
+							newMat = materials[ j ].map;
+							let multiplier = 1;
+							/*if( newMat.image.width > 512 ) {
+								multiplier = 0.5;
+							}*/
+							let smallerCanvas = document.createElement( "canvas" );
+							smallerCanvas.width = newMat.image.width * multiplier;
+							smallerCanvas.height = newMat.image.height * multiplier;
+							let smallerCtx = smallerCanvas.getContext( "2d" );
+							if( materials[ j ].transparent || materials[ j ].alphaTest ) {
+								smallerCtx.translate( 0, smallerCanvas.height );
+								smallerCtx.scale( 1, -1 );
+							}
+							smallerCtx.drawImage( newMat.image, 0, 0, smallerCanvas.width, smallerCanvas.height );
+							newMat = new THREE.CanvasTexture( smallerCanvas );
+							newMat.wrapS = newMat.wrapT = THREE.RepeatWrapping;
+						}
+						if( materials[ j ].map ) {
+							newMat.flipY = oldFlipY;
+						}
+						newMat.transparent = false;
+						if( materials[ j ].transparent ) {
+							newMat.transparent = materials[ j ].transparent;
+							newMat.depthWrite = false;
+						}
+						newMat.alphaTest = materials[ j ].alphaTest;
+						newMat.flipY = false;
+						if( materials[ j ].transparent || materials[ j ].alphaTest ) {
+							newMat.flipY = true;
+						}
+						newMat.needsUpdate = true;
+						var uniforms = THREE.UniformsUtils.merge( [
+							THREE.ShaderLib.basic.uniforms, {
+								map : {
+									type : "t",
+									//value : materials[ j ].map
+									value : newMat
+								},
+								lightmap : {
+									type : "t",
+									value : grayTexture
+								},
+								justLightmap : {
+									type : "f",
+									value : 0.99
+								}
+							}
+						] );
+						
+						var vertexShader = `
+							#include <uv2_pars_vertex>
+							varying vec2 vUvv;
+							varying vec3 nrm;
+							
+							void main() {
+								vUvv = uv;
+								vUv2 = uv2;
+								gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+								nrm = normal;
+							}
+						`;
+						
+						var fragmentShader = `
+							varying vec2 vUvv;
+							varying vec2 vUv2;
+							varying vec3 nrm;
+							
+							uniform sampler2D map;
+							uniform sampler2D lightmap;
+							uniform float justLightmap;
+							
+							void main() {
+								if( justLightmap > 0.5 ) {
+									gl_FragColor = texture2D( lightmap, vUv2 );
+								} else {
+									gl_FragColor = texture2D( map, vUvv );
+									if( gl_FragColor.a < 0.6 ) {
+										discard;
+									}
+									gl_FragColor *= texture2D( lightmap, vUv2 ) * 2.5;
+									//gl_FragColor.xyz = nrm;
+								}
+							}
+						`;
+						
+						var oldMaterial = materials[ j ];
+						materials[ j ] = new THREE.ShaderMaterial( {
+							uniforms : uniforms,
+							vertexShader : vertexShader,
+							fragmentShader : fragmentShader,
+							vertexColors : THREE.VertexColors,
+							alphaTest : newMat.alphaTest,
+							transparent : newMat.transparent,
+							depthWrite : !newMat.transparent,
+							side : THREE.DoubleSide, // THREE.FrontSide
+							name : matName,
+							defines : {
+								USE_LIGHTMAP : ''
+							}
+						} );
+						
+						animatedMaterials.push( materials[ j ] );
+						lightmapShaders.push( materials[ j ] );
+						existingLightmapMats[ matName ] = materials[ j ];
+					}
+					if( singleMaterial ) {
+						child.material = materials[ 0 ];
+						child.material.onBeforeCompile = function( shader ) {
+							//console.log( shader.vertexShader );
+							//console.log( shader.fragmentShader );
+						}
+					}
+				} );
+				
+				obj.traverse( function( child ) {
+					if( !child.geometry ) {
+						return;
+					}
+					var materials = child.material;
+					if( !Array.isArray( materials ) ) {
+						materials = [ child.material ];
+					}
+					for( var i = 0; i < materials.length; i++ ) {
+						if( materials[ i ].uniforms.mapa != undefined && materials[ i ].uniforms.mapa.value == null ) {
+							var materialNames = ( materials[ i ].name.substr( materials[ i ].name.indexOf( ":" ) + 1 ) ).split( "," );
+							materials[ i ].uniforms.mapa.value = existingLightmapMats[ materialNames[ 0 ] ].uniforms.map.value;
+							materials[ i ].uniforms.mapb.value = existingLightmapMats[ materialNames[ 1 ] ].uniforms.map.value;
+						}
+					}
+				} );
+			}
+			
+			new THREE.GLTFLoader().load( link, function( gltf ) {
+				var obj = gltf.scene;
+				//obj = obj.clone();
+				//obj = combineObject( obj );
+				//var oldObj = obj.clone();
+				obj.scale.setScalar( settings.scale );
+				walls.add( obj );
+				
+				setupWorldMaterial( obj );
+				
+				renderer.compile( scene, camera );
+				
+				function unwrapCallback( obj ) {
+					var oldObj = obj.clone();
+					bake( obj, true );
+					rebake = function() {
+						if( lightmapNeedsUpdate ) {
+							return;
+						}
+						obj = oldObj;
+						oldObj = oldObj.clone();
+						bake( obj, true );
+					}
+					document.getElementById( "rebake" ).addEventListener( "click", function( e ) {
+						rebake();
+						document.getElementById( "rebake" ).blur();
+					} );
+				}
+				
+				if( settings.unwrap ) {
+					unwrap( obj, function() {
+						unwrapCallback( obj );
+					} );
+				} else {
+					unwrapCallback( obj );
+				}
+			} );
+			
+			var rotateMode = true;
+			var time = Date.now();
+			var last = time;
+			var dt = 0;
+			var frame = 0;
+			
+			function render() {
+				
+				let isTiming = lightmapNeedsUpdate;
+				isTiming = false;
+				
+				if( isTiming ) {
+					console.time( "render" );
+					console.time( "render a" );
+				}
+				
+				last = time;
+				time = Date.now();
+				dt = time - last;
+				frame++;
+				
+				let animatedTimeChange = dt / 10000;
+				for( let i = 0; i < animatedMaterials.length; i++ ) {
+					if( animatedMaterials[ i ].uniforms[ "time" ] != undefined ) {
+						animatedMaterials[ i ].uniforms.time.value += animatedTimeChange;
+						animatedMaterials[ i ].uniforms.time.needsUpdate = true;
+					}
+				}
+				
+				for( let i = 0; i < animatedObjects.length; i++ ) {
+					animatedObjects[ i ].rotation.y -= animatedTimeChange * 2.5;
+				}
+				
+				let speed = dt / 80;
+				if( keys.c ) {
+					lateral.position.y -= speed;
+				}
+				if( keys.v ) {
+					lateral.position.y += speed;
+				}
+				
+				let delta = clock.getDelta();
+				for( let i = 0; i < mixers.length; i++ ) {
+					mixers[ i ].update( delta );
+				}
+				
+				if( isTiming ) {
+					console.timeEnd( "render a" );
+					console.time( "lightmap" );
+				}
+				
+				if( lightmapNeedsUpdate && frame % 2 == 0 ) {
+					renderLightmapStep();
+				}
+				
+				if( isTiming ) {
+					console.timeEnd( "lightmap" );
+					console.time( "render b" );
+				}
+				
+				let sceneObjects = 0;
+				scene.traverse( function( child ) {
+					sceneObjects++;
+				} );
+				//console.log( "Scene objects: " + sceneObjects );
+				
+				renderer.render( scene, camera );
+				
+				if( isTiming ) {
+					console.timeEnd( "render b" );
+					console.timeEnd( "render" );
+				}
+				
+				/*if( lightmapNeedsUpdate ) {
+					setTimeout( render, 2 );
+				} else {
+					requestAnimationFrame( render );
+				}*/
+				requestAnimationFrame( render );
+			}
+			
+			window.onresize = function() {
+				resize();
+			};
+			
+			var zoom = cameraContainer.position.y;
+			document.body.addEventListener( "wheel", function( e ) {
+				var zoomscale = 0.001;
+				cameraContainer.position.z += e.deltaY * zoomscale * cameraContainer.position.z;
+				zoom = cameraContainer.position.z;
+			} );
+			
+			window.addEventListener( "DOMMouseScroll", function( e ) {
+				e.preventDefault();
+			} );
+			
+			document.body.addEventListener( "mousedown", function( e ) {
+				
+				if( e.target != renderer.domElement ) {
+					return;
+				}
+				
+				if( document.activeElement == document.getElementById( "lightcolor" ) ) {
+					return;
+				}
+				//console.log( document.activeElement );
+				
+				raycaster.setFromCamera( threemouse, camera );
+				if( addingHitbox ) {
+					intersects = raycaster.intersectObjects( walls.children, true );
+					for( var i = 0; i < intersects.length; i++ ) {
+						/*if( !intersects[ i ].object.isLightBall ) {
+							continue;
+						}*/
+						
+						var p = intersects[ i ].point;
+						var light = {
+							preset : Object.keys( settings.lightPresets )[ 0 ],
+							position : new THREE.Vector3(),
+							selected : true
+						}
+						light.position.copy( walls.worldToLocal( new THREE.Vector3( p.x, p.y, p.z ) ) );
+						makeLight( light );
+						
+						addingHitbox = false;
+						save();
+						return;
+					}
+				}
+				
+				if( e.which == 2 || e.which == 3 ) {
+					if( e.shiftKey ) {
+						tcontrols.moving = true;
+					} else {
+						tcontrols.rotating = true;
+					}
+				}
+				if( e.which != 1 ) {
+					return;
+				}
+				
+				if( !control.dragging ) {
+					detach();
+					intersects = raycaster.intersectObjects( walls.children, true );
+					for( var i = 0; i < intersects.length; i++ ) {
+						if( !intersects[ i ].object.isLightBall ) {
+							continue;
+						}
+						var mesh = intersects[ i ].object;
+						attach( mesh );
+						control.setMode( "translate" );
+						break;
+					}
+				}
+			} );
+			
+			var tcontrols = {
+				rotating : false,
+				moving : false
+			}
+			
+			var keys = {}
+			
+			var globalMouse = new THREE.Vector2();
+			
+			var mousemove = function( e ) {
+				if( e !== undefined ) {
+					threemouse.x = ( e.clientX / window.innerWidth ) * 2 - 1;
+					threemouse.y = -( e.clientY / window.innerHeight ) * 2 + 1;
+					globalMouse.x = e.clientX - window.innerWidth / 2;
+				}
+				if( tcontrols.rotating ) {
+					var rotateScale = 0.01;
+					pitch.rotation.x -= e.movementY * rotateScale;
+					pitch.rotation.x = Math.max( Math.min( pitch.rotation.x, Math.PI / 2 ), -Math.PI / 2 );
+					yaw.rotation.y -= e.movementX * rotateScale;
+					updateMatrix = true;
+				}
+				if( tcontrols.moving ) {
+					var lateralScale = 0.02;
+					lateralScale += zoom / 1000;
+					lateral.position.x -= e.movementY * lateralScale * Math.sin( yaw.rotation.y );
+					lateral.position.z -= e.movementY * lateralScale * Math.cos( yaw.rotation.y );
+					lateral.position.x -= e.movementX * lateralScale * Math.sin( yaw.rotation.y + Math.PI / 2 );
+					lateral.position.z -= e.movementX * lateralScale * Math.cos( yaw.rotation.y + Math.PI / 2 );
+					updateMatrix = true;
+				}
+			}
+			
+			document.body.addEventListener( "mousemove", mousemove );
+			
+			document.body.addEventListener( "mouseup", function( e ) {
+				if( e.which == 2 || e.which == 3 ) {
+					tcontrols.rotating = false;
+					tcontrols.moving = false;
+				}
+			} );
+			
+			document.body.addEventListener( "keydown", function( e ) {
+				if( e.key == "Shift" && !e.ctrlKey ) {
+					shifting = true;
+				}
+				var key = e.key.toLowerCase();
+				keys[ key ] = true;
+				if( key == " " ) {
+					for( var i = 0; i < lightmapShaders.length; i++ ) {
+						if( lightmapShaders[ i ].uniforms.justLightmap.value < 0.5 ) {
+							lightmapShaders[ i ].uniforms.justLightmap.value = 1.0;
+						} else {
+							lightmapShaders[ i ].uniforms.justLightmap.value = 0.0;
+						}
+						lightmapShaders[ i ].uniforms.justLightmap.needsUpdate = true;
+					}
+				}
+				if( key == "o" ) {
+					for( var i = 0; i < lightmapShaders.length; i++ ) {
+						if( lightmapShaders[ i ].side == THREE.FrontSide ) {
+							lightmapShaders[ i ].side = THREE.DoubleSide;
+						} else {
+							lightmapShaders[ i ].side = THREE.FrontSide;
+						}
+					}
+				}
+				if( key == "g" ) {
+					control.setMode( "translate" );
+				}
+				if( key == "r" ) {
+					//control.setMode( "rotate" );
+				}
+				if( key == "s" ) {
+					//control.setMode( "scale" );
+				}
+				
+				if( key == "u" ) {
+					console.log( JSON.stringify( makeSaveObject() ) );
+					navigator.clipboard.writeText( JSON.stringify( makeSaveObject() ) );
+				}
+				
+				if( key == "b" ) {
+					var newmap = prompt( "Enter light data:" );
+					newmap = newmap.trim();
+					loadSave( newmap );
+				}
+				
+				if( key == "i" ) {
+					lightObject.visible = !lightObject.visible;
+					if( !lightObject.visible ) {
+						detach();
+					}
+					if( lightObject.visible ) {
+						document.getElementById( "rightthemeui" ).style.display = "initial";
+						document.getElementById( "rightthemeui" ).style.visibility = "visible";
+						document.getElementById( "top" ).style.display = "initial";
+						document.getElementById( "top" ).style.visibility = "visible";
+					} else {
+						document.getElementById( "rightthemeui" ).style.display = "none";
+						document.getElementById( "rightthemeui" ).style.visibility = "hidden";
+						document.getElementById( "top" ).style.display = "none";
+						document.getElementById( "top" ).style.visibility = "hidden";
+					}
+				}
+				
+				if( key == "q" ) {
+					rebake();
+				}
+				
+				if( key == "backspace" || key == "delete" ) {
+					if( selectedHitbox == null ) {
+						return;
+					}
+					lightObject.remove( selectedHitbox );
+					//lights.splice( lights.indexOf( selectedHitbox.light ), 1 );
+					redoLights( true );
+					save();
+				}
+			} );
+			
+			document.body.addEventListener( "keyup", function( e ) {
+				if( e.key == "Shift" ) {
+					shifting = false;
+				}
+				var key = e.key.toLowerCase();
+				keys[ key ] = false;
+			} );
+			render();
+			
+			function download( exportObj, exportName ){
+				var dataStr = "data:text/json;charset=utf-8," + encodeURIComponent( JSON.stringify( exportObj ) );
+				var downloadAnchorNode = document.createElement( 'a' );
+				downloadAnchorNode.setAttribute( "href", dataStr );
+				downloadAnchorNode.setAttribute( "download", exportName );
+				document.body.appendChild( downloadAnchorNode ); // required for firefox
+				downloadAnchorNode.click();
+				downloadAnchorNode.remove();
+			}
+		}
+	</script>
+	<body>
+		<div id="top" style="position: absolute;">
+		</div>
+	</body>
+</html>
