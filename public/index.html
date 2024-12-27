@@ -525,8 +525,8 @@
 		
 		document.getElementById( "samples" ).value = 64;
 		samples = 64;
-		document.getElementById( "bakesize" ).value = 4096;
-		bakeSize = 4096;
+		document.getElementById( "bakesize" ).value = 2048;
+		bakeSize = 2048;
 		
 		for( var i = 0; i < settings.lights.length; i++ ) {
 			settings.lights[ i ].position.x *= settings.scale;
@@ -2024,6 +2024,7 @@
 										varying vec2 vUv;
 										void main() {
 											vUv = uv;
+											vUv.y = 1.0 - vUv.y;
 											gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
 										}
 									`,
@@ -2128,7 +2129,6 @@
 						texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
 						texture.minFilter = THREE.NearestFilter;
 						texture.generateMipmaps = false;
-						texture.flipY = false;
 						
 						object.traverse( function( child ) {
 							if( child.material == undefined || child.isLightBall ) {
@@ -2307,6 +2307,8 @@
 						return;
 					}
 					
+					//child.oldMaterial = child.material;
+					
 					var newObjects = [ child ];
 					var i = 0;
 					
@@ -2361,36 +2363,35 @@
 							continue;
 						}
 						if( materials[ j ].map == undefined ) {
-							console.log( materials[ j ] );
-							materials[ j ].map = missingTexture;
+							let colorCanvas = document.createElement( "canvas" );
+							colorCanvas.width = colorCanvas.height = 1;
+							let colorCtx = colorCanvas.getContext( "2d" );
+							colorCtx.fillStyle = "#" + materials[ j ].color.getHexString();
+							colorCtx.fillRect( 0, 0, 1, 1 );
+							let colorTexture = new THREE.CanvasTexture( colorCanvas );
+							materials[ j ].map = colorTexture;
 							//continue;
 						}
 						var newMat;
 						var oldFlipY = materials[ j ].map.flipY;
-						if( matName == "animatedgrass" ) {
-							newMat = loadTexture( "/textures/tfgrass.png" );
-							newMat.wrapS = THREE.ClampToEdgeWrapping;
-							newMat.wrapT = THREE.ClampToEdgeWrapping;
-							newMat.anisotropy = 0;
-							newMat.minFilter = THREE.NearestFilter;
-						} else {
-							newMat = materials[ j ].map;
-							let multiplier = 1;
-							/*if( newMat.image.width > 512 ) {
-								multiplier = 0.5;
-							}*/
-							let smallerCanvas = document.createElement( "canvas" );
-							smallerCanvas.width = newMat.image.width * multiplier;
-							smallerCanvas.height = newMat.image.height * multiplier;
-							let smallerCtx = smallerCanvas.getContext( "2d" );
-							if( materials[ j ].transparent || materials[ j ].alphaTest ) {
-								smallerCtx.translate( 0, smallerCanvas.height );
-								smallerCtx.scale( 1, -1 );
-							}
-							smallerCtx.drawImage( newMat.image, 0, 0, smallerCanvas.width, smallerCanvas.height );
-							newMat = new THREE.CanvasTexture( smallerCanvas );
-							newMat.wrapS = newMat.wrapT = THREE.RepeatWrapping;
+						
+						newMat = materials[ j ].map;
+						let multiplier = 1;
+						/*if( newMat.image.width > 512 ) {
+							multiplier = 0.5;
+						}*/
+						let smallerCanvas = document.createElement( "canvas" );
+						smallerCanvas.width = newMat.image.width * multiplier;
+						smallerCanvas.height = newMat.image.height * multiplier;
+						let smallerCtx = smallerCanvas.getContext( "2d" );
+						if( materials[ j ].transparent || materials[ j ].alphaTest ) {
+							smallerCtx.translate( 0, smallerCanvas.height );
+							smallerCtx.scale( 1, -1 );
 						}
+						smallerCtx.drawImage( newMat.image, 0, 0, smallerCanvas.width, smallerCanvas.height );
+						newMat = new THREE.CanvasTexture( smallerCanvas );
+						newMat.wrapS = newMat.wrapT = THREE.RepeatWrapping;
+							
 						if( materials[ j ].map ) {
 							newMat.flipY = oldFlipY;
 						}

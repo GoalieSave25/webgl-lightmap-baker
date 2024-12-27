@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Lightmap Output</title>
+		<script type="text/javascript" src="/r124/threeoriginal.js"></script>
+		<script type="text/javascript" src="/r124/examples/js/loaders/GLTFLoader.js"></script>
+		<script type="text/javascript" src="/r124/examples/js/controls/OrbitControls.js"></script>
+		<meta name="viewport" content="width=device-width, user-scalable=no" />
+		<style>
+			* {
+				margin: 0;
+				padding: 0;
+				user-select: none;
+				overflow: hidden;
+				cursor: default;
+				font-family: Verdana;
+				font-size: 17px;
+			}
+		</style>
+	</head>
+	<body>
+	</body>
+	<script>
+		const renderer = new THREE.WebGLRenderer();
+		renderer.setSize( window.innerWidth, window.innerHeight );
+		document.body.appendChild( renderer.domElement );
+		
+		const scene = new THREE.Scene();
+		const camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 10000 );
+		const controls = new THREE.OrbitControls( camera, renderer.domElement );
+		
+		camera.position.set( 0, 20, 100 );
+		controls.update();
+		
+		function animate() {
+			requestAnimationFrame( animate );
+			controls.update();
+			renderer.render( scene, camera );
+		}
+		animate();
+		
+		const lightmap = new THREE.TextureLoader().load( "output/lightmap.png" );
+		
+		new THREE.GLTFLoader().load( "output/gioutput.gltf", function( gltf ) {
+			var obj = gltf.scene;
+			obj.traverse( function( child ) {
+				if( child.material == undefined ) {
+					return;
+				}
+				child.material.lightMap = lightmap;
+				child.material.lightMapIntensity = 2;
+			} );
+			scene.add( obj );
+		} );
+	</script>
+</html>
