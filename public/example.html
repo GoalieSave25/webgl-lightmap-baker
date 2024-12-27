@@ -22,6 +22,7 @@
 	</body>
 	<script>
 		const renderer = new THREE.WebGLRenderer();
+		renderer.outputEncoding = THREE.sRGBEncoding;
 		renderer.setSize( window.innerWidth, window.innerHeight );
 		document.body.appendChild( renderer.domElement );
 		
@@ -48,7 +49,7 @@
 					return;
 				}
 				child.material.lightMap = lightmap;
-				child.material.lightMapIntensity = 2;
+				child.material.lightMapIntensity = 1.8;
 			} );
 			scene.add( obj );
 		} );
