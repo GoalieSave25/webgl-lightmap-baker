@@ -23,12 +23,21 @@
 	<script>
 		const renderer = new THREE.WebGLRenderer();
 		renderer.outputEncoding = THREE.sRGBEncoding;
-		renderer.setSize( window.innerWidth, window.innerHeight );
 		document.body.appendChild( renderer.domElement );
+		renderer.domElement.style.width = "100%";
+		renderer.domElement.style.height = "100%";
 		
 		const scene = new THREE.Scene();
 		const camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 10000 );
 		const controls = new THREE.OrbitControls( camera, renderer.domElement );
+		
+		function resize() {
+			renderer.setSize( window.innerWidth * window.devicePixelRatio, window.innerHeight * window.devicePixelRatio, false );
+			camera.aspect = window.innerWidth / window.innerHeight;
+			camera.updateProjectionMatrix();
+		}
+		window.onresize = resize;
+		resize();
 		
 		camera.position.set( 0, 20, 100 );
 		controls.update();
@@ -41,6 +50,7 @@
 		animate();
 		
 		const lightmap = new THREE.TextureLoader().load( "output/lightmap.png" );
+		lightmap.channel = 1;
 		
 		new THREE.GLTFLoader().load( "output/gioutput.gltf", function( gltf ) {
 			var obj = gltf.scene;

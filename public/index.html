@@ -52,10 +52,14 @@
 		</style>
 		<body>
 			<canvas id="progress" height="32px" style="width: 100%; height: 64px; position: absolute; bottom: 0px;"></canvas>
-			<div id="rightthemeui" style="text-align: right; top: 0px; right: 0px; position: absolute; z-index: 11; /*display: none;*/">
+			<div id="rightthemeui" style="text-align: right; top: 0px; right: 0px; position: absolute; z-index: 11;">
 				
 				<div id="themelist" class="settings">
 					<button id="rebake">Bake</button>
+				</div>
+				
+				<div class="settings">
+					<input type="file" id="modelupload" accept=".glb,.gltf">
 				</div>
 				
 				<div class="settings" style="color: #FFF; margin-top: 5px;">
@@ -578,7 +582,7 @@
 			} );
 			
 			function resize() {
-				renderer.setSize( window.innerWidth, window.innerHeight );
+				renderer.setSize( window.innerWidth * window.devicePixelRatio, window.innerHeight * window.devicePixelRatio );
 				renderer.domElement.style.width = window.innerWidth + "px";
 				renderer.domElement.style.height = window.innerHeight + "px";
 				camera.aspect = window.innerWidth / window.innerHeight;
@@ -854,7 +858,7 @@
 						}
 						
 						// Step 5: Replace the color attribute with the reordered colors
-						geometry.setAttribute( 'color', new THREE.BufferAttribute( newColors, 3 ) );
+						geometry.setAttribute( "color", new THREE.BufferAttribute( newColors, 3 ) );
 						
 						// Replace the color attribute with the newly ordered colors
 						geometry.needsUpdate = true;
@@ -1323,7 +1327,7 @@
 				
 				
 				
-				if( bvh == undefined ) {
+				//if( bvh == undefined ) {
 					var allGeometryClone = allGeometry.clone();
 					for( var i = 0; i < allGeometryClone.faces.length; i++ ) {
 						allGeometryClone.faces[ i ].materialIndex = null;
@@ -1334,7 +1338,7 @@
 					//console.log( bvh._roots );
 					bvhUniformStruct = new MeshBVHLib.MeshBVHUniformStruct();
 					bvhUniformStruct.updateFrom( bvh );
-				}
+				//}
 				
 				var fullIcosahedron = new THREE.IcosahedronGeometry( 1, 7 );
 				var icosahedronVertices = [];
@@ -2507,11 +2511,7 @@
 				} );
 			}
 			
-			new THREE.GLTFLoader().load( link, function( gltf ) {
-				var obj = gltf.scene;
-				//obj = obj.clone();
-				//obj = combineObject( obj );
-				//var oldObj = obj.clone();
+			function prepareObject( obj ) {
 				obj.scale.setScalar( settings.scale );
 				walls.add( obj );
 				
@@ -2543,6 +2543,24 @@
 				} else {
 					unwrapCallback( obj );
 				}
+			}
+			
+			new THREE.GLTFLoader().load( link, function( gltf ) {
+				var obj = gltf.scene;
+				prepareObject( obj );
+			} );
+			
+			var fileInput = document.getElementById( "modelupload" );
+			fileInput.addEventListener( "change", async function() {
+				if( this.files.length <= 0 ) {
+					return;
+				}
+				var data = await this.files[ 0 ].arrayBuffer();
+				new THREE.GLTFLoader().parse( data, "", function( gltf ) {
+					console.log( gltf.scene );
+					prepareObject( gltf.scene );
+					//scope.manager.itemEnd( url );
+				} );
 			} );
 			
 			var rotateMode = true;
